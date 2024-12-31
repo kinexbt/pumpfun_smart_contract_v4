@@ -9,7 +9,7 @@ The `Pump.fun Solana Program SDK` is a Rust library that provides an interface f
 Add this crate to your project using cargo:
 
 ```sh
-cargo add pumpfun
+cargo add mai3-pumpfun-sdk
 ```
 
 ## Usage
