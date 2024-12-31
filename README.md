@@ -4,7 +4,8 @@ A comprehensive Rust SDK for seamless interaction with the PumpFun Solana progra
 
 
 # Explanation
-This repository is forked from [https://github.com/nhuxhr/pumpfun-rs](https://github.com/nhuxhr/pumpfun-rs).
+This repository is forked from [https://github.com/nhuxhr/pumpfun-rs](https://github.com/nhuxhr/pumpfun-rs).  
+
 Change `PumpFun<'a>` to `PumpFun`, and `payer: &'a Keypair` to `payer: Arc<Keypair>`.
 
 ## Table of Contents
