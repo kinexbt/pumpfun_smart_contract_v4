@@ -1,8 +1,8 @@
 [package]
 name = "mai3-pumpfun-sdk"
-version = "2.0.1"
+version = "2.1.0"
 edition = "2021"
-authors = ["Rapheal Bamidele <nhuxhr@gmail.com>"]
+authors = ["William <william@mai3.io>"]
 repository = "https://github.com/MiracleAI-Labs/pumpfun-sdk"
 description = "Rust SDK to interact with the Pump.fun Solana program."
 license = "MIT OR Apache-2.0"
