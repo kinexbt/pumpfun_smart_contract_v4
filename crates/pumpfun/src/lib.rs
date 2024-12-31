@@ -6,6 +6,8 @@ pub mod error;
 pub mod instruction;
 pub mod utils;
 
+use crate::error::ClientError::*;
+
 use anchor_client::{
     solana_client::rpc_client::RpcClient,
     solana_sdk::{

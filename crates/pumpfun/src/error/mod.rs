@@ -19,6 +19,11 @@
 //! - `RateLimitExceeded`: Rate limit exceeded.
 
 use anchor_client::solana_client;
+use serde_json::Error;
+use anchor_client::solana_client::{
+    client_error::ClientError as SolanaClientError, 
+    pubsub_client::PubsubClientError
+};
 
 #[derive(Debug)]
 pub enum ClientError {
@@ -42,6 +47,26 @@ pub enum ClientError {
     SimulationError(String),
     /// Rate limit exceeded
     RateLimitExceeded,
+
+    Solana(String, String),
+    
+    Parse(String, String),
+
+    Join(String),
+
+    Subscribe(String, String),
+
+    Send(String, String),
+
+    Other(String),
+
+    Timeout(String, String),
+
+    Duplicate(String),
+
+    InvalidEventType,
+
+    ChannelClosed,
 }
 
 impl std::fmt::Display for ClientError {
@@ -57,6 +82,16 @@ impl std::fmt::Display for ClientError {
             Self::InsufficientFunds => write!(f, "Insufficient funds for transaction"),
             Self::SimulationError(msg) => write!(f, "Transaction simulation failed: {}", msg),
             Self::RateLimitExceeded => write!(f, "Rate limit exceeded"),
+            Self::Solana(msg, details) => write!(f, "Solana error: {}, details: {}", msg, details),
+            Self::Parse(msg, details) => write!(f, "Parse error: {}, details: {}", msg, details),
+            Self::Join(msg) => write!(f, "Task join error: {}", msg),
+            Self::Subscribe(msg, details) => write!(f, "Subscribe error: {}, details: {}", msg, details),
+            Self::Send(msg, details) => write!(f, "Send error: {}, details: {}", msg, details),
+            Self::Other(msg) => write!(f, "Other error: {}", msg),
+            Self::Timeout(msg, details) => write!(f, "Operation timed out: {}, details: {}", msg, details),
+            Self::Duplicate(msg) => write!(f, "Duplicate event: {}", msg),
+            Self::InvalidEventType => write!(f, "Invalid event type"),
+            Self::ChannelClosed => write!(f, "Channel closed"),
         }
     }
 }
@@ -72,3 +107,32 @@ impl std::error::Error for ClientError {
         }
     }
 }
+
+impl From<SolanaClientError> for ClientError {
+    fn from(error: SolanaClientError) -> Self {
+        ClientError::Solana(
+            "Solana client error".to_string(),
+            error.to_string(),
+        )
+    }
+}
+
+impl From<PubsubClientError> for ClientError {
+    fn from(error: PubsubClientError) -> Self {
+        ClientError::Solana(
+            "PubSub client error".to_string(),
+            error.to_string(),
+        )
+    }
+}
+
+impl From<Error> for ClientError {
+    fn from(err: Error) -> Self {
+        ClientError::Parse(
+            "JSON serialization error".to_string(),
+            err.to_string()
+        )
+    }
+}
+
+pub type ClientResult<T> = Result<T, ClientError>;

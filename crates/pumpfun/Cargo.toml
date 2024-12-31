@@ -22,4 +22,6 @@ pumpfun-cpi = { path = "../pumpfun-cpi", version = "1.1.0" }
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.132"
 solana-sdk = "1.18.26"
-tokio = "1.41.1"
+tokio = "1.42.0"
+base64 = "0.22.1"
+bs58 = "0.5.1"
