@@ -3,7 +3,10 @@ use serde::{Serialize, Deserialize};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 use crate::error::{ClientError, ClientResult};
-use crate::instruction::{logs_data::*, logs_filters::{LogFilter, DexInstruction}};
+use crate::instruction::{
+    logs_data::{DexInstruction, CreateTokenInfo, TradeInfo}, 
+    logs_filters::LogFilter
+};
 
 pub async fn process_logs<F>(
     signature: &str,
@@ -20,16 +23,16 @@ where
     Ok(())
 }
 
-// 添加解析函数
+// Add parsing function
 pub fn parse_create_token_data(data: &str) -> ClientResult<CreateTokenInfo> {
-    // 首先进行 base64 解码
+    // First do base64 decoding
     let decoded = BASE64.decode(data)
         .map_err(|e| ClientError::Other(format!("Failed to decode base64: {}", e)))?;
     
-    // 跳过前缀字节（如果有的话）
+    // Skip prefix bytes (if any)
     let mut cursor = if decoded.len() > 8 { 8 } else { 0 };
     
-    // 读取名称长度和名称
+    // Read name length and name
     if cursor + 4 > decoded.len() {
         return Err(ClientError::Other("Data too short for name length".to_string()));
     }
@@ -43,7 +46,7 @@ pub fn parse_create_token_data(data: &str) -> ClientResult<CreateTokenInfo> {
         .map_err(|e| ClientError::Other(format!("Invalid UTF-8 in name: {}", e)))?;
     cursor += name_len;
     
-    // 读取符号长度和符号
+    // Read symbol length and symbol
     if cursor + 4 > decoded.len() {
         return Err(ClientError::Other("Data too short for symbol length".to_string()));
     }
@@ -57,7 +60,7 @@ pub fn parse_create_token_data(data: &str) -> ClientResult<CreateTokenInfo> {
         .map_err(|e| ClientError::Other(format!("Invalid UTF-8 in symbol: {}", e)))?;
     cursor += symbol_len;
     
-    // 读取 URI 长度和 URI
+    // Read URI length and URI
     if cursor + 4 > decoded.len() {
         return Err(ClientError::Other("Data too short for URI length".to_string()));
     }
@@ -71,20 +74,20 @@ pub fn parse_create_token_data(data: &str) -> ClientResult<CreateTokenInfo> {
         .map_err(|e| ClientError::Other(format!("Invalid UTF-8 in uri: {}", e)))?;
     cursor += uri_len;
     
-    // 确保还有足够的数据来读取公钥
+    // Make sure there is enough data to read public keys
     if cursor + 32 * 3 > decoded.len() {
         return Err(ClientError::Other("Data too short for public keys".to_string()));
     }
     
-    // 解析 Mint Public Key
+    // Parse Mint Public Key
     let mint = bs58::encode(&decoded[cursor..cursor+32]).into_string();
     cursor += 32;
 
-    // 解析 Bonding Curve Public Key
+    // Parse Bonding Curve Public Key
     let bonding_curve = bs58::encode(&decoded[cursor..cursor+32]).into_string();
     cursor += 32;
 
-    // 解析 User Public Key
+    // Parse User Public Key
     let user = bs58::encode(&decoded[cursor..cursor+32]).into_string();
 
     Ok(CreateTokenInfo {
@@ -113,7 +116,7 @@ pub fn parse_trade_data(data: &str) -> ClientResult<TradeInfo> {
         )
     )?;
 
-    let mut cursor = 8;  // 跳过前缀
+    let mut cursor = 8;  // Skip prefix
 
     // 1. Mint (32 bytes)
     let mint = bs58::encode(&decoded[cursor..cursor + 32]).into_string();

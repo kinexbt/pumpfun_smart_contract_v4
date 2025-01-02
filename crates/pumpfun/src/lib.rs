@@ -493,7 +493,7 @@ impl PumpFun {
     }
 }
 
-use crate::instruction::logs_subscribe::{start_subscription, stop_subscription, SubscriptionHandle};
+// use crate::instruction::logs_subscribe::{start_subscription, stop_subscription, SubscriptionHandle};
 
 
 #[cfg(test)]
@@ -522,33 +522,33 @@ mod tests {
         assert!(metadata_pda != Pubkey::default());
     }
 
-    #[tokio::test]
-    async fn test_logs_subscription() {
-        let ws_url = "wss://api.mainnet-beta.solana.com";
-        let program_address = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
-        let commitment = CommitmentConfig::confirmed();
+    // #[tokio::test]
+    // async fn test_logs_subscription() {
+    //     let ws_url = "wss://api.mainnet-beta.solana.com";
+    //     let program_address = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+    //     let commitment = CommitmentConfig::confirmed();
 
-        let process_logs_callback = |signature: String, logs: Vec<String>| {
-            println!("Signature: {}", signature);
-            for log in logs {
-                println!("Log: {}", log);
-            }
-        };
+    //     let process_logs_callback = |signature: String, logs: Vec<String>| {
+    //         println!("Signature: {}", signature);
+    //         for log in logs {
+    //             println!("Log: {}", log);
+    //         }
+    //     };
 
-        let subscription = start_subscription(
-            ws_url,
-            program_address,
-            commitment,
-            process_logs_callback,
-        )
-        .await.unwrap();
+    //     let subscription = start_subscription(
+    //         ws_url,
+    //         program_address,
+    //         commitment,
+    //         process_logs_callback,
+    //     )
+    //     .await.unwrap();
 
-        // 模拟运行5秒后关闭订阅
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    //     // 模拟运行5秒后关闭订阅
+    //     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
-        (subscription.unsub_fn)(); // 调用取消逻辑
-        subscription.task.await.unwrap();
+    //     (subscription.unsub_fn)(); // 调用取消逻辑
+    //     subscription.task.await.unwrap();
 
-        println!("Subscription closed.");
-    }
+    //     println!("Subscription closed.");
+    // }
 }

@@ -1,20 +1,13 @@
 use crate::instruction::logs_data::{CreateTokenInfo, TradeInfo};
 use crate::instruction::logs_parser::{parse_create_token_data, parse_trade_data};
 use crate::error::ClientResult;
-
+use crate::instruction::logs_data::DexInstruction;
 pub struct LogFilter;
-
-#[derive(Debug)]
-pub enum DexInstruction {
-    CreateToken(CreateTokenInfo),
-    Trade(TradeInfo),
-    Other,
-}
 
 impl LogFilter {
     const PROGRAM_ID: &'static str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
     
-    /// 解析交易日志并返回具体的指令类型和数据
+    /// Parse transaction logs and return instruction type and data
     pub fn parse_instruction(logs: &[String]) -> ClientResult<Vec<DexInstruction>> {
         let mut current_instruction = None;
         let mut program_data = String::new();
@@ -22,11 +15,10 @@ impl LogFilter {
         let mut last_data_len = 0;
         let mut instructions = Vec::new();
         for log in logs {
-            // println!("log: {:?}", log);
-            // 检查程序调用
+            // Check program invocation
             if log.contains(&format!("Program {} invoke", Self::PROGRAM_ID)) {
                 invoke_depth += 1;
-                if invoke_depth == 1 {  // 只在顶层调用时重置状态
+                if invoke_depth == 1 {  // Only reset state at top level call
                     current_instruction = None;
                     program_data.clear();
                     last_data_len = 0;
@@ -34,12 +26,12 @@ impl LogFilter {
                 continue;
             }
             
-            // 如果不在我们的程序中，跳过
+            // Skip if not in our program
             if invoke_depth == 0 {
                 continue;
             }
             
-            // 识别指令类型（只在顶层调用时）
+            // Identify instruction type (only at top level)
             if invoke_depth == 1 && log.contains("Program log: Instruction:") {
                 if log.contains("Create") {
                     current_instruction = Some("create");
@@ -49,7 +41,7 @@ impl LogFilter {
                 continue;
             }
             
-            // 收集 Program data
+            // Collect Program data
             if log.starts_with("Program data: ") {
                 let data = log.trim_start_matches("Program data: ");
                 if data.len() > last_data_len {
@@ -58,10 +50,10 @@ impl LogFilter {
                 }
             }
             
-            // 检查程序是否结束
+            // Check if program ends
             if log.contains(&format!("Program {} success", Self::PROGRAM_ID)) {
                 invoke_depth -= 1;
-                if invoke_depth == 0 {  // 只在顶层程序结束时处理数据
+                if invoke_depth == 0 {  // Only process data when top level program ends
                     if let Some(instruction_type) = current_instruction {
                         if !program_data.is_empty() {
                             match instruction_type {
@@ -85,4 +77,4 @@ impl LogFilter {
 
         Ok(instructions)
     }
-} 
+}

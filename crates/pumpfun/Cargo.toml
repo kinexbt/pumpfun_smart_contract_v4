@@ -1,6 +1,6 @@
 [package]
 name = "mai3-pumpfun-sdk"
-version = "2.2.5"
+version = "2.3.0"
 edition = "2021"
 authors = ["William <william@mai3.io>"]
 repository = "https://github.com/MiracleAI-Labs/pumpfun-sdk"

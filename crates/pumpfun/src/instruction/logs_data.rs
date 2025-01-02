@@ -1,4 +1,12 @@
 use serde::{Serialize, Deserialize};
+
+#[derive(Debug)]
+pub enum DexInstruction {
+    CreateToken(CreateTokenInfo),
+    Trade(TradeInfo),
+    Other,
+}
+
 // 添加新的数据结构
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CreateTokenInfo {
