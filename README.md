@@ -12,7 +12,6 @@ This repository is forked from [https://github.com/nhuxhr/pumpfun-rs](https://gi
 4. Add `logs_subscribe` to subscribe the logs of the PumpFun program.
 5. Add `logs_events` to define the event of the logs.
 6. Add `logs_parser` to parse the logs.
-7. Add `logs_process` to process the logs.
 
 ## Table of Contents
 
@@ -42,7 +41,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mai3-pumpfun-sdk = "2.2.2"
+mai3-pumpfun-sdk = "2.2.5"
 ```
 
 ## Usage
