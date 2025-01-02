@@ -27,7 +27,7 @@ This repository is forked from [https://github.com/nhuxhr/pumpfun-rs](https://gi
 
 | Name                                  | Description                                                                        | Version |
 | ------------------------------------- | ---------------------------------------------------------------------------------- | ------- |
-| [`pumpfun`](./crates/pumpfun)         | Main client library for interacting with the PumpFun program                       | 2.0.0   |
+| [`pumpfun`](./crates/pumpfun)         | Main client library for interacting with the PumpFun program                       | 2.2.2   |
 | [`pumpfun-cpi`](./crates/pumpfun-cpi) | CPI (Cross-Program Invocation) interfaces for integrating with the PumpFun program | 1.1.0   |
 
 ## Features
@@ -42,7 +42,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mai3-pumpfun-sdk = "2.1.0"
+mai3-pumpfun-sdk = "2.2.2"
 ```
 
 ## Usage
