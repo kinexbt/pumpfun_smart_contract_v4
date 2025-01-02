@@ -78,7 +78,7 @@ pub struct CreateTokenMetadata {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use pumpfun::utils::{CreateTokenMetadata, create_token_metadata};
+/// use mai3_pumpfun_sdk::utils::{CreateTokenMetadata, create_token_metadata};
 ///
 /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 /// let metadata = CreateTokenMetadata {
@@ -177,7 +177,7 @@ pub async fn create_token_metadata(
 ///
 /// # Example
 /// ```rust
-/// use pumpfun::utils;
+/// use mai3_pumpfun_sdk::utils;
 ///
 /// let amount = 1_000_000_000; // 1 SOL in lamports
 /// let slippage = 100; // 1% slippage tolerance
@@ -200,7 +200,7 @@ pub fn calculate_with_slippage_buy(amount: u64, basis_points: u64) -> u64 {
 ///
 /// # Example
 /// ```rust
-/// use pumpfun::utils;
+/// use mai3_pumpfun_sdk::utils;
 ///
 /// let amount = 1_000_000_000; // 1 SOL in lamports
 /// let slippage = 100; // 1% slippage tolerance

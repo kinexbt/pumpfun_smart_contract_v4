@@ -1,5 +1,5 @@
 use crate::instruction::logs_data::{CreateTokenInfo, TradeInfo};
-use crate::instruction::logs_paser::{parse_create_token_data, parse_trade_data};
+use crate::instruction::logs_parser::{parse_create_token_data, parse_trade_data};
 use crate::error::ClientResult;
 
 pub struct LogFilter;

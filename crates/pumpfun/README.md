@@ -27,7 +27,7 @@ use anchor_client::{
     },
     Cluster,
 };
-use pumpfun::{accounts::BondingCurveAccount, utils::CreateTokenMetadata, PriorityFee, PumpFun};
+use mai3_pumpfun_sdk::{accounts::BondingCurveAccount, utils::CreateTokenMetadata, PriorityFee, PumpFun};
 
 // Create a new PumpFun client
 let payer: Keypair = Keypair::new();

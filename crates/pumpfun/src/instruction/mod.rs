@@ -11,12 +11,18 @@
 //! - `sell`: Instruction to sell tokens back to the bonding curve in exchange for SOL.
 
 pub mod logs_data;
-pub mod logs_paser;
+pub mod logs_parser;
 pub mod logs_filter;
+pub mod logs_event;
+pub mod logs_process;   
+pub mod logs_subscribe;
 
 pub use logs_data::*;
-pub use logs_paser::*;
+pub use logs_parser::*;
 pub use logs_filter::*;
+pub use logs_event::*;
+pub use logs_process::*;
+pub use logs_subscribe::*;
 
 use crate::{constants, PumpFun};
 use anchor_client::anchor_lang::InstructionData;
