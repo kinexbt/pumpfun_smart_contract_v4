@@ -1,5 +1,5 @@
 use crate::error::ClientResult;
-use crate::instruction::logs_filter::{LogFilter, DexInstruction};
+use crate::instruction::logs_filters::{LogFilter, DexInstruction};
 
 pub async fn process_logs<F>(
     signature: &str,

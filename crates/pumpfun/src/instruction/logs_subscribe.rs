@@ -8,7 +8,7 @@ use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use futures_util::StreamExt;
+use futures::{future::BoxFuture, Future, StreamExt};
 
 /// 订阅结果，包含订阅任务和取消订阅逻辑
 pub struct SubscriptionHandle {

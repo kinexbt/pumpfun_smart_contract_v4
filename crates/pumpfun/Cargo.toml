@@ -1,6 +1,6 @@
 [package]
 name = "mai3-pumpfun-sdk"
-version = "2.2.1"
+version = "2.2.2"
 edition = "2021"
 authors = ["William <william@mai3.io>"]
 repository = "https://github.com/MiracleAI-Labs/pumpfun-sdk"
@@ -23,6 +23,7 @@ serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.132"
 solana-sdk = "1.18.26"
 tokio = "1.42.0"
-futures-util = "0.3.29"
+futures = "0.3.31"
+futures-util = "0.3.31"
 base64 = "0.22.1"
 bs58 = "0.5.1"
