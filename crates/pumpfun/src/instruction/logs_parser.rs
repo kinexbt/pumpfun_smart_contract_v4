@@ -1,8 +1,25 @@
-use crate::error::{ClientError, ClientResult};
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use futures::{future::BoxFuture, Future, StreamExt};
 use serde::{Serialize, Deserialize};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
-use crate::instruction::logs_data::*;
+use crate::error::{ClientError, ClientResult};
+use crate::instruction::{logs_data::*, logs_filters::{LogFilter, DexInstruction}};
+
+pub async fn process_logs<F>(
+    signature: &str,
+    logs: Vec<String>,
+    callback: F,
+) -> ClientResult<()>
+where
+    F: Fn(&str, DexInstruction) + Send + Sync,
+{
+    let instructions = LogFilter::parse_instruction(&logs)?;
+    for instruction in instructions {
+        callback(signature, instruction);
+    }
+    Ok(())
+}
+
 // 添加解析函数
 pub fn parse_create_token_data(data: &str) -> ClientResult<CreateTokenInfo> {
     // 首先进行 base64 解码

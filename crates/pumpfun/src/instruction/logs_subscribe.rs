@@ -16,6 +16,13 @@ pub struct SubscriptionHandle {
     pub unsub_fn: Box<dyn Fn() + Send>,
 }
 
+impl SubscriptionHandle {
+    pub async fn shutdown(self) {
+        (self.unsub_fn)();
+        self.task.abort();
+    }
+}
+
 pub async fn create_pubsub_client(ws_url: &str) -> PubsubClient {
     PubsubClient::new(ws_url).await.unwrap()
 }
@@ -25,19 +32,19 @@ pub async fn start_subscription<F>(
     ws_url: &str,
     program_address: &str,
     commitment: CommitmentConfig,
-    process_logs_callback: F,
+    subscription_callback: F,
 ) -> Result<SubscriptionHandle, Box<dyn std::error::Error>>
 where
-    F: Fn(String, Vec<String>) + Send + 'static,
+    F: Fn(&str, Vec<String>) + Send + Sync + 'static,
 {
-    // 配置日志订阅
+    let logs_filter = RpcTransactionLogsFilter::Mentions(vec![program_address.to_string()]);
+
     let logs_config = RpcTransactionLogsConfig {
         commitment: Some(commitment),
     };
-    let logs_filter = RpcTransactionLogsFilter::Mentions(vec![program_address.to_string()]);
 
     // 创建 PubsubClient
-    let sub_client = Arc::new(create_pubsub_client(ws_url).await);
+    let sub_client = Arc::new(PubsubClient::new(ws_url).await.unwrap());
 
     let sub_client_clone = Arc::clone(&sub_client);
 
@@ -46,33 +53,23 @@ where
 
     // 启动订阅任务
     let task = tokio::spawn(async move {
-        // let subs_client = Arc::clone(&sub_client);
         let (mut stream, unsub) = sub_client_clone.logs_subscribe(logs_filter, logs_config).await.unwrap();
+
         loop {
-            tokio::select! {
-                _ = unsub_rx.recv() => {
-                    eprintln!("Received shutdown signal. Unsubscribing...");
-                    unsub().await;
-                    break;
-                }
-                msg = stream.next() => {
-                    match msg {
-                        println!("msg: {}", msg);
-                        Some(msg) => {
-                            if let Some(_err) = msg.value.err {
-                                continue;
-                            }
-                            
-                            println!("logs: {}", msg.value.logs);
-                            process_logs_callback(msg.value.signature, msg.value.logs);
-                        }
-                        None => {
-                            println!("Token subscription stream ended");
-                            break;
-                        }
+            let msg = stream.next().await;
+            match msg {
+                Some(msg) => {
+                    if let Some(_err) = msg.value.err {
+                        continue;
                     }
+                    
+                    subscription_callback(&msg.value.signature.as_str(), msg.value.logs);
                 }
-            }
+                None => {
+                    println!("Token subscription stream ended");
+                    // break;
+                }
+            }   
         }
     });
 
