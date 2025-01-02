@@ -57,11 +57,13 @@ where
                 }
                 msg = stream.next() => {
                     match msg {
+                        println!("msg: {}", msg);
                         Some(msg) => {
                             if let Some(_err) = msg.value.err {
                                 continue;
                             }
                             
+                            println!("logs: {}", msg.value.logs);
                             process_logs_callback(msg.value.signature, msg.value.logs);
                         }
                         None => {
