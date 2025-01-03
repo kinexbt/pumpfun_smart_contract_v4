@@ -9,11 +9,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use futures::StreamExt;
-use crate::instruction::{
-    logs_events::DexEvent,
-    logs_data::DexInstruction,
-    logs_filters::LogFilter
-};
+use crate::{constants, instruction::{
+    logs_data::DexInstruction, logs_events::DexEvent, logs_filters::LogFilter
+}};
 
 /// Subscription handle containing task and unsubscribe logic
 pub struct SubscriptionHandle {
@@ -35,14 +33,14 @@ pub async fn create_pubsub_client(ws_url: &str) -> PubsubClient {
 /// 启动订阅
 pub async fn tokens_subscription<F>(
     ws_url: &str,
-    program_address: &str,
     commitment: CommitmentConfig,
     callback: F,
 ) -> Result<SubscriptionHandle, Box<dyn std::error::Error>>
 where
     F: Fn(DexEvent) + Send + Sync + 'static,
 {
-    let logs_filter = RpcTransactionLogsFilter::Mentions(vec![program_address.to_string()]);
+    let program_address = constants::accounts::PUMPFUN.to_string();
+    let logs_filter = RpcTransactionLogsFilter::Mentions(vec![program_address]);
 
     let logs_config = RpcTransactionLogsConfig {
         commitment: Some(commitment),
