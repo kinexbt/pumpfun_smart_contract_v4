@@ -85,7 +85,7 @@ use mai3_pumpfun_sdk::{accounts::BondingCurveAccount, utils::CreateTokenMetadata
 
 // Create a new PumpFun client
 let payer: Keypair = Keypair::new();
-let client: PumpFun = PumpFun::new(Cluster::Mainnet, &payer, None, None);
+let client: PumpFun = PumpFun::new(Cluster::Mainnet, None, &payer, None, None);
 
 // Mint keypair
 let mint: Keypair = Keypair::new();

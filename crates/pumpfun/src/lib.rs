@@ -55,10 +55,10 @@ pub struct PumpFun {
     pub rpc: RpcClient,
     /// Keypair used to sign transactions
     pub payer: Arc<Keypair>,
-    /// Jito client instance
-    pub jito_client: Option<JitoClient>,
     /// Anchor client instance
     pub client: Client<Arc<Keypair>>,
+     /// Jito client instance
+     pub jito_client: Option<JitoClient>,
     /// Anchor program instance
     pub program: Program<Arc<Keypair>>,
 }
@@ -78,7 +78,7 @@ impl PumpFun {
     /// Returns a new PumpFun client instance configured with the provided parameters
     pub fn new(
         cluster: Cluster,
-        jito_url: String,
+        jito_url: Option<String>,
         payer: Arc<Keypair>,
         options: Option<CommitmentConfig>,
         ws: Option<bool>,
@@ -91,7 +91,7 @@ impl PumpFun {
         });
 
         let mut jito_client = None;
-        if !jito_url.is_empty() {
+        if let Some(jito_url) = jito_url {
             jito_client = Some(JitoClient::new(&jito_url));
         }
 
@@ -757,7 +757,7 @@ mod tests {
     #[test]
     fn test_new_client() {
         let payer = Arc::new(Keypair::new());
-        let client = PumpFun::new(Cluster::Devnet, Arc::clone(&payer), None, None);
+        let client = PumpFun::new(Cluster::Devnet, None,Arc::clone(&payer), None, None);
         assert_eq!(client.payer.pubkey(), payer.pubkey());
     }
 
