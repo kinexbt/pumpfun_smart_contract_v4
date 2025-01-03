@@ -52,6 +52,8 @@ pub enum ClientError {
     
     Parse(String, String),
 
+    Jito(String, String),
+
     Join(String),
 
     Subscribe(String, String),
@@ -84,6 +86,7 @@ impl std::fmt::Display for ClientError {
             Self::RateLimitExceeded => write!(f, "Rate limit exceeded"),
             Self::Solana(msg, details) => write!(f, "Solana error: {}, details: {}", msg, details),
             Self::Parse(msg, details) => write!(f, "Parse error: {}, details: {}", msg, details),
+            Self::Jito(msg, details) => write!(f, "Jito error: {}, details: {}", msg, details),
             Self::Join(msg) => write!(f, "Task join error: {}", msg),
             Self::Subscribe(msg, details) => write!(f, "Subscribe error: {}, details: {}", msg, details),
             Self::Send(msg, details) => write!(f, "Send error: {}, details: {}", msg, details),

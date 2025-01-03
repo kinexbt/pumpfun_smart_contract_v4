@@ -5,6 +5,7 @@ pub mod constants;
 pub mod error;
 pub mod instruction;
 pub mod utils;
+pub mod jito;
 
 use crate::error::ClientError::*;
 
@@ -15,6 +16,10 @@ use anchor_client::{
         pubkey::Pubkey,
         signature::{Keypair, Signature},
         signer::Signer,
+        instruction::Instruction,
+        system_instruction,
+        compute_budget::ComputeBudgetInstruction,
+        transaction::Transaction,
     },
     Client, Cluster, Program,
 };
@@ -22,10 +27,18 @@ use anchor_spl::associated_token::{
     get_associated_token_address,
     spl_associated_token_account::instruction::create_associated_token_account,
 };
-use borsh::BorshDeserialize;
-pub use pumpfun_cpi as cpi;
-use solana_sdk::compute_budget::ComputeBudgetInstruction;
+
 use std::sync::Arc;
+use borsh::BorshDeserialize;
+use std::time::Instant;
+pub use pumpfun_cpi as cpi;
+
+use crate::jito::JitoClient;
+use crate::error::ClientError;
+
+const DEFAULT_SLIPPAGE: u64 = 500; // 10%
+const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 68_000;
+const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 400_000;
 
 /// Configuration for priority fee compute unit parameters
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +55,8 @@ pub struct PumpFun {
     pub rpc: RpcClient,
     /// Keypair used to sign transactions
     pub payer: Arc<Keypair>,
+    /// Jito client instance
+    pub jito_client: Option<JitoClient>,
     /// Anchor client instance
     pub client: Client<Arc<Keypair>>,
     /// Anchor program instance
@@ -63,6 +78,7 @@ impl PumpFun {
     /// Returns a new PumpFun client instance configured with the provided parameters
     pub fn new(
         cluster: Cluster,
+        jito_url: String,
         payer: Arc<Keypair>,
         options: Option<CommitmentConfig>,
         ws: Option<bool>,
@@ -73,6 +89,11 @@ impl PumpFun {
         } else {
             cluster.url()
         });
+
+        let mut jito_client = None;
+        if !jito_url.is_empty() {
+            jito_client = Some(JitoClient::new(&jito_url));
+        }
 
         // Create Anchor Client with optional commitment config
         let client: Client<Arc<Keypair>> = if let Some(options) = options {
@@ -88,6 +109,7 @@ impl PumpFun {
         Self {
             rpc,
             payer,
+            jito_client,
             client,
             program,
         }
@@ -321,6 +343,126 @@ impl PumpFun {
         Ok(signature)
     }
 
+    /// Buys tokens from a bonding curve with Jito
+    pub async fn buy_with_jito(
+        &self,
+        mint: &Pubkey,
+        amount_sol: u64,
+        slippage_basis_points: Option<u64>,
+        priority_fee: Option<PriorityFee>,
+    ) -> Result<Signature, error::ClientError> {
+        let start_time = Instant::now();
+
+        if self.jito_client.is_none() {
+            return Err(ClientError::Other(
+                "Jito client not found".to_string(),
+            ));
+        }
+
+        // Get accounts and calculate buy amounts
+        let global_account = self.get_global_account()?;
+
+        // 获取 bonding curve pda
+        let bonding_curve_pda = Self::get_bonding_curve_pda(mint).unwrap();
+        // 获取 bonding curve account
+        let bonding_curve_account = self.get_bonding_curve_account(mint)?;
+        // 获取 buy amount
+        let buy_amount = bonding_curve_account
+            .get_buy_price(amount_sol)
+            .map_err(error::ClientError::BondingCurveError)?;
+
+        let buy_amount_with_slippage =
+            utils::calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(500));
+
+        let mut unit_limit = DEFAULT_COMPUTE_UNIT_LIMIT;
+        let mut unit_price = DEFAULT_COMPUTE_UNIT_PRICE;
+        
+        // 准备所有指令
+        let mut instructions: Vec<Instruction> = vec![];
+
+        // Add priority fee if provided
+        if let Some(fee) = priority_fee {
+            if let Some(limit) = fee.limit {
+                unit_limit = limit;
+                let limit_ix = ComputeBudgetInstruction::set_compute_unit_limit(limit);
+                instructions.push(limit_ix);
+            }
+
+            if let Some(price) = fee.price {
+                unit_price = price;
+                let price_ix = ComputeBudgetInstruction::set_compute_unit_price(price);
+                instructions.push(price_ix);
+            }
+        }
+
+        // 获取 jito client
+        let jito_client = self.jito_client.as_ref().unwrap();
+
+        // 获取优先费用估算
+        let priority_fees = jito_client.estimate_priority_fees(&bonding_curve_pda).await?;
+        
+        // 计算每计算单元的优先费用（使用 Extreme 级别）
+        let priority_fee_per_cu = priority_fees.per_compute_unit.extreme;
+
+         // 完整的单位转换过程
+         let total_priority_fee_microlamports = priority_fee_per_cu as u128 * unit_limit as u128;
+         let total_priority_fee_lamports = total_priority_fee_microlamports / 1_000_000;
+         let total_priority_fee_sol = total_priority_fee_lamports as f64 / 1_000_000_000.0;
+         
+         println!("Priority fee details:");
+         println!("  Per CU (microlamports): {}", priority_fee_per_cu);
+         println!("  Total (lamports): {}", total_priority_fee_lamports);
+         println!("  Total (SOL): {:.9}", total_priority_fee_sol);
+ 
+         // 获取 tip account
+         let tip_account = jito_client.get_tip_account().await.unwrap();
+
+        // Create Associated Token Account if needed
+        let ata: Pubkey = get_associated_token_address(&self.payer.pubkey(), mint);
+        if self.rpc.get_account(&ata).is_err() {
+            instructions.push(create_associated_token_account(
+                &self.payer.pubkey(),
+                &self.payer.pubkey(),
+                mint,
+                &constants::accounts::TOKEN_PROGRAM,
+            ));
+        }
+
+        // Add buy instruction
+        instructions.push(instruction::buy(
+            &self.payer.clone().as_ref(),
+            mint,
+            &global_account.fee_recipient,
+            cpi::instruction::Buy {
+                _amount: buy_amount,
+                _max_sol_cost: buy_amount_with_slippage,
+            },
+        ));
+
+        instructions.push(
+            system_instruction::transfer(
+                &self.payer.pubkey(),
+                &tip_account,
+                total_priority_fee_lamports as u64,
+            ),
+        );
+
+        // 创建并发送交易
+        let recent_blockhash = self.rpc.get_latest_blockhash()?;
+        let transaction = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&self.payer.pubkey()),
+            &[&self.payer.clone()],
+            recent_blockhash,
+        );
+
+        // 通过 Jito 发送交易
+        let signature = jito_client.send_transaction(&transaction).await.unwrap();
+        println!("Total Jito buy operation time: {:?}ms", start_time.elapsed().as_millis());
+
+        Ok(signature)
+    }
+
     /// Sells tokens back to the bonding curve in exchange for SOL
     ///
     /// # Arguments
@@ -389,6 +531,117 @@ impl PumpFun {
             .send()
             .await
             .map_err(error::ClientError::AnchorClientError)?;
+
+        Ok(signature)
+    }
+
+    /// Sells tokens back to the bonding curve in exchange for SOL with Jito
+    pub async fn sell_with_jito(
+        &self,
+        mint: &Pubkey,
+        amount_token: Option<u64>,
+        slippage_basis_points: Option<u64>,
+        priority_fee: Option<PriorityFee>,
+    ) -> Result<Signature, error::ClientError> {
+        let start_time = Instant::now();
+
+        if self.jito_client.is_none() {
+            return Err(ClientError::Other(
+                "Jito client not found".to_string(),
+            ));
+        }
+
+        // Get accounts and calculate sell amounts
+        let ata: Pubkey = get_associated_token_address(&self.payer.pubkey(), mint);
+        let balance = self.rpc.get_token_account_balance(&ata).unwrap();
+        let balance_u64: u64 = balance.amount.parse::<u64>().unwrap();
+        let _amount = amount_token.unwrap_or(balance_u64);
+        let global_account = self.get_global_account()?;
+        let bonding_curve_pda = Self::get_bonding_curve_pda(mint).unwrap();
+        let bonding_curve_account = self.get_bonding_curve_account(mint)?;
+        let min_sol_output = bonding_curve_account
+            .get_sell_price(_amount, global_account.fee_basis_points)
+            .map_err(error::ClientError::BondingCurveError)?;
+        let _min_sol_output = utils::calculate_with_slippage_sell(
+            min_sol_output,
+            slippage_basis_points.unwrap_or(500),
+        );
+
+        let mut unit_limit = DEFAULT_COMPUTE_UNIT_LIMIT;
+        let mut unit_price = DEFAULT_COMPUTE_UNIT_PRICE;
+        
+        // 准备所有指令
+        let mut instructions: Vec<Instruction> = vec![];
+
+        // Add priority fee if provided
+        if let Some(fee) = priority_fee {
+            if let Some(limit) = fee.limit {
+                unit_limit = limit;
+                let limit_ix = ComputeBudgetInstruction::set_compute_unit_limit(limit);
+                instructions.push(limit_ix);
+            }
+
+            if let Some(price) = fee.price {
+                unit_price = price;
+                let price_ix = ComputeBudgetInstruction::set_compute_unit_price(price);
+                instructions.push(price_ix);
+            }
+        }
+
+        // 获取 jito client
+        let jito_client = self.jito_client.as_ref().unwrap();
+
+        // 获取优先费用估算
+        let priority_fees = jito_client.estimate_priority_fees(&bonding_curve_pda).await?;
+        
+        // 计算每计算单元的优先费用（使用 Extreme 级别）
+        let priority_fee_per_cu = priority_fees.per_compute_unit.extreme;
+        
+        // 完整的单位转换过程
+        let total_priority_fee_microlamports = priority_fee_per_cu as u128 * unit_limit as u128;
+        let total_priority_fee_lamports = total_priority_fee_microlamports / 1_000_000;
+        let total_priority_fee_sol = total_priority_fee_lamports as f64 / 1_000_000_000.0;
+        
+        println!("Priority fee details:");
+        println!("  Per CU (microlamports): {}", priority_fee_per_cu);
+        println!("  Total (lamports): {}", total_priority_fee_lamports);
+        println!("  Total (SOL): {:.9}", total_priority_fee_sol);
+
+        // 获取 tip account
+        let tip_account = jito_client.get_tip_account().await.unwrap();
+
+        // Add buy instruction
+        instructions.push(instruction::sell(
+            &self.payer.clone().as_ref(),
+            mint,
+            &global_account.fee_recipient,
+            cpi::instruction::Sell {
+                _amount,
+                _min_sol_output,
+            },
+        ));
+
+        // 添加 tip 指令
+        instructions.push(
+            system_instruction::transfer(
+                &self.payer.pubkey(),
+                &tip_account,
+                total_priority_fee_lamports as u64,
+            ),
+        );
+
+        // 创建并发送交易
+        let recent_blockhash = self.rpc.get_latest_blockhash()?;
+        let transaction = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&self.payer.pubkey()),
+            &[&self.payer.clone()],
+            recent_blockhash,
+        );
+
+        // 通过 Jito 发送交易
+        let signature = jito_client.send_transaction(&transaction).await.unwrap();
+        println!("Total Jito sell operation time: {:?}ms", start_time.elapsed().as_millis());
 
         Ok(signature)
     }
@@ -521,34 +774,4 @@ mod tests {
         assert!(bonding_curve_pda.is_some());
         assert!(metadata_pda != Pubkey::default());
     }
-
-    // #[tokio::test]
-    // async fn test_logs_subscription() {
-    //     let ws_url = "wss://api.mainnet-beta.solana.com";
-    //     let program_address = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
-    //     let commitment = CommitmentConfig::confirmed();
-
-    //     let process_logs_callback = |signature: String, logs: Vec<String>| {
-    //         println!("Signature: {}", signature);
-    //         for log in logs {
-    //             println!("Log: {}", log);
-    //         }
-    //     };
-
-    //     let subscription = start_subscription(
-    //         ws_url,
-    //         program_address,
-    //         commitment,
-    //         process_logs_callback,
-    //     )
-    //     .await.unwrap();
-
-    //     // 模拟运行5秒后关闭订阅
-    //     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-
-    //     (subscription.unsub_fn)(); // 调用取消逻辑
-    //     subscription.task.await.unwrap();
-
-    //     println!("Subscription closed.");
-    // }
 }
