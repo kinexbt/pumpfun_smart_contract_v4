@@ -3,8 +3,7 @@ use anchor_client::solana_client::{
     rpc_config::{RpcTransactionLogsConfig, RpcTransactionLogsFilter}
 };
 
-use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
-
+use anchor_client::solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -35,6 +34,7 @@ pub async fn tokens_subscription<F>(
     ws_url: &str,
     commitment: CommitmentConfig,
     callback: F,
+    payer: Option<Pubkey>,
 ) -> Result<SubscriptionHandle, Box<dyn std::error::Error>>
 where
     F: Fn(DexEvent) + Send + Sync + 'static,
@@ -66,7 +66,7 @@ where
                         continue;
                     }
 
-                    let instructions = LogFilter::parse_instruction(&msg.value.logs).unwrap();
+                    let instructions = LogFilter::parse_instruction(&msg.value.logs, payer).unwrap();
                     for instruction in instructions {
                         match instruction {
                             DexInstruction::CreateToken(token_info) => {
@@ -74,6 +74,9 @@ where
                             }
                             DexInstruction::Trade(trade_info) => {
                                 callback(DexEvent::NewTrade(trade_info));
+                            }
+                            DexInstruction::BotTrade(trade_info) => {
+                                callback(DexEvent::NewBotTrade(trade_info));
                             }
                             _ => {}
                         }

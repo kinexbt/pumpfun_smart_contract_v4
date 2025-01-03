@@ -8,15 +8,18 @@ use crate::instruction::{
     logs_filters::LogFilter
 };
 
+use anchor_client::solana_sdk::pubkey::Pubkey;
+
 pub async fn process_logs<F>(
     signature: &str,
     logs: Vec<String>,
     callback: F,
+    payer: Option<Pubkey>,
 ) -> ClientResult<()>
 where
     F: Fn(&str, DexInstruction) + Send + Sync,
 {
-    let instructions = LogFilter::parse_instruction(&logs)?;
+    let instructions = LogFilter::parse_instruction(&logs, payer)?;
     for instruction in instructions {
         callback(signature, instruction);
     }

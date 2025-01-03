@@ -25,6 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             DexEvent::NewTrade(trade_info) => {
                 println!("Received new trade event: {:?}", trade_info);
             },
+            DexEvent::NewBotTrade(trade_info) => {
+                println!("Received new bot trade event: {:?}", trade_info);
+            },
             DexEvent::Error(err) => {
                 println!("Received error: {}", err);
             }
@@ -35,7 +38,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let subscription = tokens_subscription(
         ws_url,
         commitment,
-        callback
+        callback,
+        None
     ).await.unwrap();
 
     // Wait for a while to receive events

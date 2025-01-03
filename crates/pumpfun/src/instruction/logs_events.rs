@@ -5,5 +5,6 @@ use crate::instruction::logs_data::{CreateTokenInfo, TradeInfo};
 pub enum DexEvent {
     NewToken(CreateTokenInfo),
     NewTrade(TradeInfo),
+    NewBotTrade(TradeInfo),
     Error(String),
 }

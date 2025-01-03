@@ -2,13 +2,14 @@ use crate::instruction::logs_data::{CreateTokenInfo, TradeInfo};
 use crate::instruction::logs_parser::{parse_create_token_data, parse_trade_data};
 use crate::error::ClientResult;
 use crate::instruction::logs_data::DexInstruction;
+use anchor_client::solana_sdk::pubkey::Pubkey;
 pub struct LogFilter;
 
 impl LogFilter {
     const PROGRAM_ID: &'static str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
     
     /// Parse transaction logs and return instruction type and data
-    pub fn parse_instruction(logs: &[String]) -> ClientResult<Vec<DexInstruction>> {
+    pub fn parse_instruction(logs: &[String], payer: Option<Pubkey>) -> ClientResult<Vec<DexInstruction>> {
         let mut current_instruction = None;
         let mut program_data = String::new();
         let mut invoke_depth = 0;
@@ -64,7 +65,15 @@ impl LogFilter {
                                 },
                                 "trade" => {
                                     if let Ok(trade_info) = parse_trade_data(&program_data) {
-                                        instructions.push(DexInstruction::Trade(trade_info));
+                                        if let Some(payer_pubkey) = payer {
+                                            if trade_info.user == payer_pubkey.to_string() {
+                                                instructions.push(DexInstruction::BotTrade(trade_info));
+                                            } else {
+                                                instructions.push(DexInstruction::Trade(trade_info));
+                                            }
+                                        } else {
+                                            instructions.push(DexInstruction::Trade(trade_info));
+                                        }
                                     }
                                 },
                                 _ => {}

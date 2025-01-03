@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 pub enum DexInstruction {
     CreateToken(CreateTokenInfo),
     Trade(TradeInfo),
+    BotTrade(TradeInfo),
     Other,
 }
 
