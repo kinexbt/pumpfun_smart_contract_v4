@@ -34,7 +34,7 @@ pub async fn tokens_subscription<F>(
     ws_url: &str,
     commitment: CommitmentConfig,
     callback: F,
-    payer: Option<Pubkey>,
+    bot_wallet: Option<Pubkey>,
 ) -> Result<SubscriptionHandle, Box<dyn std::error::Error>>
 where
     F: Fn(DexEvent) + Send + Sync + 'static,
@@ -66,14 +66,14 @@ where
                         continue;
                     }
 
-                    let instructions = LogFilter::parse_instruction(&msg.value.logs, payer).unwrap();
+                    let instructions = LogFilter::parse_instruction(&msg.value.logs, bot_wallet).unwrap();
                     for instruction in instructions {
                         match instruction {
                             DexInstruction::CreateToken(token_info) => {
                                 callback(DexEvent::NewToken(token_info));
                             }
-                            DexInstruction::Trade(trade_info) => {
-                                callback(DexEvent::NewTrade(trade_info));
+                            DexInstruction::UserTrade(trade_info) => {
+                                callback(DexEvent::NewUserTrade(trade_info));
                             }
                             DexInstruction::BotTrade(trade_info) => {
                                 callback(DexEvent::NewBotTrade(trade_info));

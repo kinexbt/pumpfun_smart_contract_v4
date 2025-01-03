@@ -20,7 +20,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mai3-pumpfun-sdk = "2.4.0"
+mai3-pumpfun-sdk = "2.4.2"
 ```
 
 ## Usage
@@ -50,6 +50,9 @@ let callback = |event: DexEvent| {
         DexEvent::NewTrade(trade_info) => {
             println!("Received new trade event: {:?}", trade_info);
         },
+        DexEvent::NewBotTrade(trade_info) => {
+            println!("Received new bot trade event: {:?}", trade_info);
+        }
         DexEvent::Error(err) => {
             println!("Received error: {}", err);
         }
@@ -60,7 +63,8 @@ let callback = |event: DexEvent| {
 let subscription = tokens_subscription(
     ws_url,
     commitment,
-    callback
+    callback,
+    None
 ).await.unwrap();
 
 tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;

@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             DexEvent::NewToken(token_info) => {
                 println!("Received new token event: {:?}", token_info);
             },
-            DexEvent::NewTrade(trade_info) => {
+            DexEvent::NewUserTrade(trade_info) => {
                 println!("Received new trade event: {:?}", trade_info);
             },
             DexEvent::NewBotTrade(trade_info) => {

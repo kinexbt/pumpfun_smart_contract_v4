@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug)]
 pub enum DexInstruction {
     CreateToken(CreateTokenInfo),
-    Trade(TradeInfo),
+    UserTrade(TradeInfo),
     BotTrade(TradeInfo),
     Other,
 }

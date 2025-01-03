@@ -9,7 +9,7 @@ impl LogFilter {
     const PROGRAM_ID: &'static str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
     
     /// Parse transaction logs and return instruction type and data
-    pub fn parse_instruction(logs: &[String], payer: Option<Pubkey>) -> ClientResult<Vec<DexInstruction>> {
+    pub fn parse_instruction(logs: &[String], bot_wallet: Option<Pubkey>) -> ClientResult<Vec<DexInstruction>> {
         let mut current_instruction = None;
         let mut program_data = String::new();
         let mut invoke_depth = 0;
@@ -65,14 +65,14 @@ impl LogFilter {
                                 },
                                 "trade" => {
                                     if let Ok(trade_info) = parse_trade_data(&program_data) {
-                                        if let Some(payer_pubkey) = payer {
-                                            if trade_info.user == payer_pubkey.to_string() {
+                                        if let Some(bot_wallet_pubkey) = bot_wallet {
+                                            if trade_info.user == bot_wallet_pubkey.to_string() {
                                                 instructions.push(DexInstruction::BotTrade(trade_info));
                                             } else {
-                                                instructions.push(DexInstruction::Trade(trade_info));
+                                                instructions.push(DexInstruction::UserTrade(trade_info));
                                             }
                                         } else {
-                                            instructions.push(DexInstruction::Trade(trade_info));
+                                            instructions.push(DexInstruction::UserTrade(trade_info));
                                         }
                                     }
                                 },
