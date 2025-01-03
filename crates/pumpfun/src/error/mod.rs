@@ -48,6 +48,10 @@ pub enum ClientError {
     /// Rate limit exceeded
     RateLimitExceeded,
 
+    ExternalService(String),
+
+    Redis(String),      
+
     Solana(String, String),
     
     Parse(String, String),
@@ -61,6 +65,12 @@ pub enum ClientError {
     Send(String, String),
 
     Other(String),
+
+    InvalidData(String),
+
+    PumpFunBuy(String),
+
+    PumpFunSell(String),
 
     Timeout(String, String),
 
@@ -83,14 +93,19 @@ impl std::fmt::Display for ClientError {
             Self::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
             Self::InsufficientFunds => write!(f, "Insufficient funds for transaction"),
             Self::SimulationError(msg) => write!(f, "Transaction simulation failed: {}", msg),
+            Self::ExternalService(msg) => write!(f, "External service error: {}", msg),
             Self::RateLimitExceeded => write!(f, "Rate limit exceeded"),
             Self::Solana(msg, details) => write!(f, "Solana error: {}, details: {}", msg, details),
             Self::Parse(msg, details) => write!(f, "Parse error: {}, details: {}", msg, details),
             Self::Jito(msg, details) => write!(f, "Jito error: {}, details: {}", msg, details),
+            Self::Redis(msg) => write!(f, "Redis error: {}", msg),
             Self::Join(msg) => write!(f, "Task join error: {}", msg),
             Self::Subscribe(msg, details) => write!(f, "Subscribe error: {}, details: {}", msg, details),
             Self::Send(msg, details) => write!(f, "Send error: {}, details: {}", msg, details),
             Self::Other(msg) => write!(f, "Other error: {}", msg),
+            Self::PumpFunBuy(msg) => write!(f, "PumpFun buy error: {}", msg),
+            Self::PumpFunSell(msg) => write!(f, "PumpFun sell error: {}", msg),
+            Self::InvalidData(msg) => write!(f, "Invalid data: {}", msg),
             Self::Timeout(msg, details) => write!(f, "Operation timed out: {}, details: {}", msg, details),
             Self::Duplicate(msg) => write!(f, "Duplicate event: {}", msg),
             Self::InvalidEventType => write!(f, "Invalid event type"),
@@ -98,7 +113,6 @@ impl std::fmt::Display for ClientError {
         }
     }
 }
-
 impl std::error::Error for ClientError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -106,6 +120,21 @@ impl std::error::Error for ClientError {
             Self::SolanaClientError(err) => Some(err),
             Self::UploadMetadataError(err) => Some(err.as_ref()),
             Self::AnchorClientError(err) => Some(err),
+            Self::ExternalService(_) => None,
+            Self::Redis(_) => None,
+            Self::Solana(_, _) => None,
+            Self::Parse(_, _) => None,
+            Self::Jito(_, _) => None,
+            Self::Join(_) => None,
+            Self::Subscribe(_, _) => None,
+            Self::Send(_, _) => None,
+            Self::Other(_) => None,
+            Self::PumpFunBuy(_) => None,
+            Self::PumpFunSell(_) => None,
+            Self::Timeout(_, _) => None,
+            Self::Duplicate(_) => None,
+            Self::InvalidEventType => None,
+            Self::ChannelClosed => None,
             _ => None,
         }
     }
