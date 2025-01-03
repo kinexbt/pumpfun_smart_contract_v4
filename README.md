@@ -32,11 +32,11 @@ use mai3_pumpfun_sdk::instruction::{
 };
 use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
 
-use std::str::FromStr;
-use tokio::signal;
+println!("Starting token subscription...");
 
+// wss 
 let ws_url = "wss://api.mainnet-beta.solana.com";
-        
+
 // Set commitment
 let commitment = CommitmentConfig::confirmed();
 
@@ -62,11 +62,12 @@ let subscription = tokens_subscription(
     callback
 ).await.unwrap();
 
-// Wait for a while to receive events
 tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 
 // Stop subscription
 stop_subscription(subscription).await;
+
+println!("Ended token subscription.");
 ```
 
 ### pumpfun Create, Buy, Sell
