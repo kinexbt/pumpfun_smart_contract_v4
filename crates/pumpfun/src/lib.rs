@@ -7,8 +7,6 @@ pub mod instruction;
 pub mod utils;
 pub mod jito;
 
-use crate::error::ClientError::*;
-
 use anchor_client::{
     solana_client::rpc_client::RpcClient,
     solana_sdk::{
@@ -27,6 +25,9 @@ use anchor_spl::associated_token::{
     get_associated_token_address,
     spl_associated_token_account::instruction::create_associated_token_account,
 };
+use instruction::logs_subscribe;
+use instruction::logs_subscribe::SubscriptionHandle;
+use instruction::logs_events::DexEvent;
 
 use std::sync::Arc;
 use borsh::BorshDeserialize;
@@ -487,6 +488,74 @@ impl PumpFun {
         let balance = self.rpc.get_token_account_balance(&ata).unwrap();
         let balance_u64: u64 = balance.amount.parse::<u64>().unwrap();
         let _amount = amount_token.unwrap_or(balance_u64);
+        if _amount == 0 {
+            return Err(ClientError::Other("Balance is 0".to_string()));
+        }
+
+        let global_account = self.get_global_account()?;
+        let bonding_curve_account = self.get_bonding_curve_account(mint)?;
+        let min_sol_output = bonding_curve_account
+            .get_sell_price(_amount, global_account.fee_basis_points)
+            .map_err(error::ClientError::BondingCurveError)?;
+        let _min_sol_output = utils::calculate_with_slippage_sell(
+            min_sol_output,
+            slippage_basis_points.unwrap_or(500),
+        );
+
+        let mut request = self.program.request();
+
+        // Add priority fee if provided
+        if let Some(fee) = priority_fee {
+            if let Some(limit) = fee.limit {
+                let limit_ix = ComputeBudgetInstruction::set_compute_unit_limit(limit);
+                request = request.instruction(limit_ix);
+            }
+
+            if let Some(price) = fee.price {
+                let price_ix = ComputeBudgetInstruction::set_compute_unit_price(price);
+                request = request.instruction(price_ix);
+            }
+        }
+
+        // Add sell instruction
+        request = request.instruction(instruction::sell(
+            &self.payer.clone().as_ref(),
+            mint,
+            &global_account.fee_recipient,
+            cpi::instruction::Sell {
+                _amount,
+                _min_sol_output,
+            },
+        ));
+
+        // Add signer
+        request = request.signer(&self.payer);
+
+        // Send transaction
+        let signature: Signature = request
+            .send()
+            .await
+            .map_err(error::ClientError::AnchorClientError)?;
+
+        Ok(signature)
+    }
+
+    pub async fn sell_by_percent(
+        &self,
+        mint: &Pubkey,
+        percent: u64,
+        slippage_basis_points: Option<u64>,
+        priority_fee: Option<PriorityFee>,
+    ) -> Result<Signature, error::ClientError> {
+        // Get accounts and calculate sell amounts
+        let ata: Pubkey = get_associated_token_address(&self.payer.pubkey(), mint);
+        let balance = self.rpc.get_token_account_balance(&ata).unwrap();
+        let balance_u64: u64 = balance.amount.parse::<u64>().unwrap();
+        if balance_u64 == 0 {
+            return Err(ClientError::Other("Balance is 0".to_string()));
+        }
+
+        let _amount = balance_u64 * percent / 100;
         let global_account = self.get_global_account()?;
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
         let min_sol_output = bonding_curve_account
@@ -646,6 +715,17 @@ impl PumpFun {
         Ok(signature)
     }
 
+    pub fn get_payer_pubkey(&self) -> Pubkey {
+        self.payer.pubkey()
+    }
+
+    pub fn get_token_balance(&self, account: &Pubkey, mint: &Pubkey) -> Result<u64, error::ClientError> {
+        let ata: Pubkey = get_associated_token_address(account, mint);
+        let balance = self.rpc.get_token_account_balance(&ata).unwrap();
+        let balance_u64: u64 = balance.amount.parse::<u64>().unwrap();
+        Ok(balance_u64)
+    }
+
     /// Gets the Program Derived Address (PDA) for the global state account
     ///
     /// # Returns
@@ -743,6 +823,23 @@ impl PumpFun {
 
         accounts::BondingCurveAccount::try_from_slice(&account.data)
             .map_err(error::ClientError::BorshError)
+    }
+
+    pub async fn tokens_subscription<F>(
+        &self,
+        ws_url: &str,
+        commitment: CommitmentConfig,
+        callback: F,
+        bot_wallet: Option<Pubkey>,
+    ) -> Result<SubscriptionHandle, Box<dyn std::error::Error>>
+    where
+        F: Fn(DexEvent) + Send + Sync + 'static,
+    {
+        logs_subscribe::tokens_subscription(ws_url, commitment, callback, bot_wallet).await
+    }
+
+    pub async fn stop_subscription(&self, subscription_handle: SubscriptionHandle) {
+        subscription_handle.shutdown().await;
     }
 }
 

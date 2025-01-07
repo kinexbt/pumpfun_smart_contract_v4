@@ -50,7 +50,7 @@ pub enum ClientError {
 
     ExternalService(String),
 
-    Redis(String),      
+    Redis(String, String),      
 
     Solana(String, String),
     
@@ -98,7 +98,7 @@ impl std::fmt::Display for ClientError {
             Self::Solana(msg, details) => write!(f, "Solana error: {}, details: {}", msg, details),
             Self::Parse(msg, details) => write!(f, "Parse error: {}, details: {}", msg, details),
             Self::Jito(msg, details) => write!(f, "Jito error: {}, details: {}", msg, details),
-            Self::Redis(msg) => write!(f, "Redis error: {}", msg),
+            Self::Redis(msg, details) => write!(f, "Redis error: {}, details: {}", msg, details),
             Self::Join(msg) => write!(f, "Task join error: {}", msg),
             Self::Subscribe(msg, details) => write!(f, "Subscribe error: {}, details: {}", msg, details),
             Self::Send(msg, details) => write!(f, "Send error: {}, details: {}", msg, details),
@@ -121,7 +121,7 @@ impl std::error::Error for ClientError {
             Self::UploadMetadataError(err) => Some(err.as_ref()),
             Self::AnchorClientError(err) => Some(err),
             Self::ExternalService(_) => None,
-            Self::Redis(_) => None,
+            Self::Redis(_, _) => None,
             Self::Solana(_, _) => None,
             Self::Parse(_, _) => None,
             Self::Jito(_, _) => None,
