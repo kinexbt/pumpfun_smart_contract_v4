@@ -104,7 +104,7 @@ impl PumpFun {
         let mut instructions = self.create_priority_fee_instructions(priority_fee);
 
         instructions.push(instruction::create(
-            self.payer.as_ref(),
+            &self.payer.clone(),
             mint,
             cpi::instruction::Create {
                 _name: ipfs.metadata.name,
@@ -147,7 +147,7 @@ impl PumpFun {
         let mut instructions = self.create_priority_fee_instructions(priority_fee);
 
         instructions.push(instruction::create(
-            self.payer.as_ref(),
+            &self.payer.clone(),
             mint,
             cpi::instruction::Create {
                 _name: ipfs.metadata.name,
@@ -167,7 +167,7 @@ impl PumpFun {
         }
 
         instructions.push(instruction::buy(
-            self.payer.as_ref(),
+            &self.payer.clone(),
             &mint.pubkey(),
             &global_account.fee_recipient,
             cpi::instruction::Buy {
@@ -344,7 +344,7 @@ impl PumpFun {
         let mut instructions = self.create_priority_fee_instructions(priority_fee);
 
         instructions.push(instruction::sell(
-            self.payer.as_ref(),
+            &self.payer.clone(),
             mint,
             &global_account.fee_recipient,
             cpi::instruction::Sell {
@@ -433,7 +433,7 @@ impl PumpFun {
         let tip_account = jito_client.get_tip_account().await?;
 
         instructions.push(instruction::sell(
-            self.payer.as_ref(),
+            &self.payer.clone(),
             mint,
             &global_account.fee_recipient,
             cpi::instruction::Sell {
@@ -581,6 +581,10 @@ impl PumpFun {
 
     pub async fn stop_subscription(&self, subscription_handle: SubscriptionHandle) {
         subscription_handle.shutdown().await;
+    }
+
+    pub fn get_buy_amount_with_slippage(&self, amount_sol: u64, slippage_basis_points: Option<u64>) -> u64 {
+        utils::calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE))
     }
 }
 
