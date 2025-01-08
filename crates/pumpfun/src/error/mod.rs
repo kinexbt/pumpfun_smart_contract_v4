@@ -24,6 +24,7 @@ use anchor_client::solana_client::{
     client_error::ClientError as SolanaClientError, 
     pubsub_client::PubsubClientError
 };
+use solana_sdk::pubkey::ParsePubkeyError;
 
 #[derive(Debug)]
 pub enum ClientError {
@@ -57,6 +58,8 @@ pub enum ClientError {
     Solana(String, String),
     
     Parse(String, String),
+
+    Pubkey(String, String),
 
     Jito(String, String),
 
@@ -103,6 +106,7 @@ impl std::fmt::Display for ClientError {
             Self::Jito(msg, details) => write!(f, "Jito error: {}, details: {}", msg, details),
             Self::Redis(msg, details) => write!(f, "Redis error: {}, details: {}", msg, details),
             Self::Join(msg) => write!(f, "Task join error: {}", msg),
+            Self::Pubkey(msg, details) => write!(f, "Pubkey error: {}, details: {}", msg, details),
             Self::Subscribe(msg, details) => write!(f, "Subscribe error: {}, details: {}", msg, details),
             Self::Send(msg, details) => write!(f, "Send error: {}, details: {}", msg, details),
             Self::Other(msg) => write!(f, "Other error: {}", msg),
@@ -129,6 +133,7 @@ impl std::error::Error for ClientError {
             Self::Parse(_, _) => None,
             Self::Jito(_, _) => None,
             Self::Join(_) => None,
+            Self::Pubkey(_, _) => None,
             Self::Subscribe(_, _) => None,
             Self::Send(_, _) => None,
             Self::Other(_) => None,
@@ -156,6 +161,15 @@ impl From<PubsubClientError> for ClientError {
     fn from(error: PubsubClientError) -> Self {
         ClientError::Solana(
             "PubSub client error".to_string(),
+            error.to_string(),
+        )
+    }
+}
+
+impl From<ParsePubkeyError> for ClientError {
+    fn from(error: ParsePubkeyError) -> Self {
+        ClientError::Pubkey(
+            "Pubkey error".to_string(),
             error.to_string(),
         )
     }

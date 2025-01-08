@@ -1,16 +1,22 @@
-use {
-    bincode, bs58, reqwest, serde::Deserialize, serde_json::{json, Value}, 
-    std::{str::FromStr, time::Duration}
-};
-
+use rand::Rng;
+use bincode;
+use bs58;
+use reqwest;
+use serde::Deserialize;
+use serde_json::{json, Value};
+use std::str::FromStr;
+use std::time::Duration;
+use tokio::sync::Mutex;
 use anchor_client::solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature, transaction::Transaction
+    commitment_config::CommitmentConfig,
+    pubkey::Pubkey,
+    signature::Signature,
+    transaction::Transaction,
 };
-
 use crate::error::ClientError;
 
-pub const MAX_RETRIES: u8 = 3;             
-pub const RETRY_DELAY: Duration = Duration::from_millis(200);  
+pub const MAX_RETRIES: u8 = 3;
+pub const RETRY_DELAY: Duration = Duration::from_millis(200);
 
 #[derive(Debug, Clone)]
 pub struct TransactionConfig {
@@ -31,7 +37,7 @@ impl Default for TransactionConfig {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JitoClient {
     endpoint: String,
     client: reqwest::Client,
@@ -49,26 +55,25 @@ impl JitoClient {
 
     pub async fn get_tip_account(&self) -> Result<Pubkey, ClientError> {
         let response = self.send_request("getTipAccounts", json!([])).await?;
-        
+
         if let Some(accounts) = response["result"].as_array() {
             if accounts.is_empty() {
-                return Err(ClientError::Other(
-                    "No JITO tip accounts found".to_string()
-                ));
+                return Err(ClientError::Other("No JITO tip accounts found".to_string()));
             }
-            
-            let random_index = rand::random::<usize>() % accounts.len();
+
+            let random_index = rand::rngs::OsRng.gen_range(0..accounts.len());
             if let Some(account) = accounts.get(random_index) {
                 if let Some(address) = account.as_str() {
-                    return Pubkey::from_str(address)
-                        .map_err(|e| ClientError::Parse(
+                    return Pubkey::from_str(address).map_err(|e| {
+                        ClientError::Parse(
                             "Invalid tip account address".to_string(),
-                            e.to_string()
-                        ));
+                            e.to_string(),
+                        )
+                    });
                 }
             }
         }
-        
+
         Err(ClientError::Other("Failed to get Tip Account".to_string()))
     }
 
@@ -83,19 +88,20 @@ impl JitoClient {
         });
 
         let response = self.send_request("qn_estimatePriorityFees", params).await?;
-        
+
         if let Some(result) = response.get("result") {
-            let estimate: PriorityFeeEstimate = serde_json::from_value(result.clone())
-                .map_err(|e| ClientError::Parse(
+            let estimate: PriorityFeeEstimate = serde_json::from_value(result.clone()).map_err(|e| {
+                ClientError::Parse(
                     "Failed to parse priority fee estimate".to_string(),
-                    e.to_string()
-                ))?;
-            
+                    e.to_string(),
+                )
+            })?;
+
             Ok(estimate)
         } else {
             Err(ClientError::Parse(
                 "Invalid response format".to_string(),
-                "Missing result field".to_string()
+                "Missing result field".to_string(),
             ))
         }
     }
@@ -104,23 +110,25 @@ impl JitoClient {
         &self,
         transaction: &Transaction,
     ) -> Result<Signature, ClientError> {
-        let wire_transaction = bincode::serialize(transaction).map_err(|e| 
+        let wire_transaction = bincode::serialize(transaction).map_err(|e| {
             ClientError::Parse(
                 "Transaction serialization failed".to_string(),
-                e.to_string()
-            ))?;
-        
+                e.to_string(),
+            )
+        })?;
+
         let encoded_tx = bs58::encode(&wire_transaction).into_string();
 
         for retry in 0..MAX_RETRIES {
             match self.try_send_transaction(&encoded_tx).await {
                 Ok(signature) => {
-                    return Ok(Signature::from_str(&signature).map_err(|e| 
+                    return Ok(Signature::from_str(&signature).map_err(|e| {
                         ClientError::Parse(
                             "Invalid signature".to_string(),
-                            e.to_string()
-                        ))?);
-                },
+                            e.to_string(),
+                        )
+                    })?);
+                }
                 Err(e) => {
                     println!("Retry {} failed: {:?}", retry, e);
                     if retry == MAX_RETRIES - 1 {
@@ -130,7 +138,7 @@ impl JitoClient {
                 }
             }
         }
-        
+
         Err(ClientError::Other("Max retries exceeded".to_string()))
     }
 
@@ -146,17 +154,14 @@ impl JitoClient {
             }
         ]);
 
-        let response = self.send_request(
-            "sendTransaction",
-            params
-        ).await?;
+        let response = self.send_request("sendTransaction", params).await?;
 
         response["result"]
             .as_str()
             .map(|s| s.to_string())
             .ok_or_else(|| ClientError::Parse(
                 "Invalid response format".to_string(),
-                "Missing result field".to_string()
+                "Missing result field".to_string(),
             ))
     }
 
@@ -176,19 +181,20 @@ impl JitoClient {
             .await
             .map_err(|e| ClientError::Solana(
                 "Request failed".to_string(),
-                e.to_string()
+                e.to_string(),
             ))?;
 
-        let response_data: Value = response.json().await
-            .map_err(|e| ClientError::Parse(
+        let response_data: Value = response.json().await.map_err(|e| {
+            ClientError::Parse(
                 "Invalid JSON response".to_string(),
-                e.to_string()
-            ))?;
-        
+                e.to_string(),
+            )
+        })?;
+
         if let Some(error) = response_data.get("error") {
             return Err(ClientError::Solana(
                 "RPC error".to_string(),
-                error.to_string()
+                error.to_string(),
             ));
         }
 
