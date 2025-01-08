@@ -99,6 +99,5 @@ where
 }
 
 pub async fn stop_subscription(handle: SubscriptionHandle) {
-    (handle.unsub_fn)();
-    handle.task.abort();
+    handle.shutdown().await;
 }

@@ -48,6 +48,8 @@ pub enum ClientError {
     /// Rate limit exceeded
     RateLimitExceeded,
 
+    OrderLimitExceeded,
+
     ExternalService(String),
 
     Redis(String, String),      
@@ -95,6 +97,7 @@ impl std::fmt::Display for ClientError {
             Self::SimulationError(msg) => write!(f, "Transaction simulation failed: {}", msg),
             Self::ExternalService(msg) => write!(f, "External service error: {}", msg),
             Self::RateLimitExceeded => write!(f, "Rate limit exceeded"),
+            Self::OrderLimitExceeded => write!(f, "Order limit exceeded"),
             Self::Solana(msg, details) => write!(f, "Solana error: {}, details: {}", msg, details),
             Self::Parse(msg, details) => write!(f, "Parse error: {}, details: {}", msg, details),
             Self::Jito(msg, details) => write!(f, "Jito error: {}, details: {}", msg, details),

@@ -7,13 +7,11 @@ use anchor_client::solana_sdk::{
     commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature, transaction::Transaction
 };
 
-use crate::error::ClientError::{self, *};
+use crate::error::ClientError;
 
-/// 常量定义
 pub const MAX_RETRIES: u8 = 3;             
 pub const RETRY_DELAY: Duration = Duration::from_millis(200);  
 
-/// 交易配置
 #[derive(Debug, Clone)]
 pub struct TransactionConfig {
     pub skip_preflight: bool,
@@ -25,13 +23,14 @@ pub struct TransactionConfig {
 impl Default for TransactionConfig {
     fn default() -> Self {
         Self {
-            skip_preflight: true,  // Jito 建议跳过预检
+            skip_preflight: true,
             preflight_commitment: CommitmentConfig::confirmed(),
             encoding: "base58".to_string(),
             last_n_blocks: 100,
         }
     }
 }
+
 #[derive(Clone)]
 pub struct JitoClient {
     endpoint: String,
@@ -48,7 +47,6 @@ impl JitoClient {
         }
     }
 
-    /// 获取随机的 tip account
     pub async fn get_tip_account(&self) -> Result<Pubkey, ClientError> {
         let response = self.send_request("getTipAccounts", json!([])).await?;
         
@@ -74,7 +72,6 @@ impl JitoClient {
         Err(ClientError::Other("Failed to get Tip Account".to_string()))
     }
 
-    /// 估算优先费用
     pub async fn estimate_priority_fees(
         &self,
         account: &Pubkey,
@@ -87,7 +84,6 @@ impl JitoClient {
 
         let response = self.send_request("qn_estimatePriorityFees", params).await?;
         
-        // 解析响应
         if let Some(result) = response.get("result") {
             let estimate: PriorityFeeEstimate = serde_json::from_value(result.clone())
                 .map_err(|e| ClientError::Parse(
@@ -104,7 +100,6 @@ impl JitoClient {
         }
     }
 
-    /// 发送交易
     pub async fn send_transaction(
         &self,
         transaction: &Transaction,

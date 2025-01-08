@@ -4,9 +4,6 @@ use mai3_pumpfun_sdk::instruction::{
 };
 use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
 
-use std::str::FromStr;
-use tokio::signal;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting token subscription\n");

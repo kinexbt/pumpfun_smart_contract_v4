@@ -1,7 +1,6 @@
-use crate::instruction::logs_data::{CreateTokenInfo, TradeInfo};
+use crate::instruction::logs_data::DexInstruction;
 use crate::instruction::logs_parser::{parse_create_token_data, parse_trade_data};
 use crate::error::ClientResult;
-use crate::instruction::logs_data::DexInstruction;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 pub struct LogFilter;
 
