@@ -79,7 +79,7 @@ impl PumpFun {
         let rpc = RpcClient::new_with_commitment(
             cluster.url(),
             commitment.unwrap_or(CommitmentConfig::confirmed())
-        );
+        );   
 
         let jito_client = jito_url.map(|url| JitoClient::new(&url));
 
@@ -236,7 +236,6 @@ impl PumpFun {
         );
 
         let signature = self.rpc.send_transaction(&transaction)?;
-
         Ok(signature)
     }
 
