@@ -39,8 +39,8 @@ use crate::error::ClientError;
 
 // Constants
 const DEFAULT_SLIPPAGE: u64 = 500; // 10%
-const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 100_000;
-const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 100_000_000;
+const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 5_000_000;
+const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 200_000;
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
