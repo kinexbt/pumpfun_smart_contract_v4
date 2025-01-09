@@ -39,14 +39,20 @@ use crate::error::ClientError;
 
 // Constants
 const DEFAULT_SLIPPAGE: u64 = 500; // 10%
-const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 68_000;
-const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 400_000;
+const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 100_000;
+const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 100_000_000;
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PriorityFee {
     pub limit: Option<u32>,
     pub price: Option<u64>,
+}
+
+impl Default for PriorityFee {
+    fn default() -> Self {
+        Self { limit: Some(DEFAULT_COMPUTE_UNIT_LIMIT), price: Some(DEFAULT_COMPUTE_UNIT_PRICE) }
+    }
 }
 
 pub struct PumpFun {
@@ -468,24 +474,21 @@ impl PumpFun {
     // Helper methods
     fn create_priority_fee_instructions(&self, priority_fee: Option<PriorityFee>) -> Vec<Instruction> {
         let mut instructions = Vec::new();
-        if let Some(fee) = priority_fee {
-            if let Some(limit) = fee.limit {
-                instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(limit));
-            }
-            if let Some(price) = fee.price {
-                instructions.push(ComputeBudgetInstruction::set_compute_unit_price(price));
-            }
+        let fee = priority_fee.unwrap_or(PriorityFee::default());
+        if let Some(limit) = fee.limit {
+            instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(limit));
         }
+        if let Some(price) = fee.price {
+            instructions.push(ComputeBudgetInstruction::set_compute_unit_price(price));
+        }
+        
         instructions
     }
 
     fn get_compute_units(&self, priority_fee: Option<PriorityFee>) -> (u32, u64) {
-        let unit_limit = priority_fee
-            .and_then(|fee| fee.limit)
-            .unwrap_or(DEFAULT_COMPUTE_UNIT_LIMIT);
-        let unit_price = priority_fee
-            .and_then(|fee| fee.price)
-            .unwrap_or(DEFAULT_COMPUTE_UNIT_PRICE);
+        let fee = priority_fee.unwrap_or(PriorityFee::default());
+        let unit_limit = fee.limit.unwrap_or(DEFAULT_COMPUTE_UNIT_LIMIT);
+        let unit_price = fee.price.unwrap_or(DEFAULT_COMPUTE_UNIT_PRICE);
         (unit_limit, unit_price)
     }
 
