@@ -20,7 +20,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mai3-pumpfun-sdk = "2.4.3"
+mai3-pumpfun-sdk = "2.4.4"
 ```
 
 ## Usage
