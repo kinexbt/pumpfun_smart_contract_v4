@@ -38,9 +38,9 @@ use crate::jito::JitoClient;
 use crate::error::ClientError;
 
 // Constants
-const DEFAULT_SLIPPAGE: u64 = 500; // 10%
-const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 5_000_000;
-const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 200_000;
+const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
+const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 10_000_000;
+const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 500_000;
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -587,6 +587,38 @@ impl PumpFun {
 
     pub fn get_buy_amount_with_slippage(&self, amount_sol: u64, slippage_basis_points: Option<u64>) -> u64 {
         utils::calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE))
+    }
+
+    pub fn get_token_price(&self, virtual_sol_reserves: u64, virtual_token_reserves: u64) -> f64 {
+        let v_sol = virtual_sol_reserves as f64 / 100_000_000.0;
+        let v_tokens = virtual_token_reserves as f64 / 100_000.0;
+        let token_price = v_sol / v_tokens;
+        token_price
+    }
+
+    pub async fn get_token_price_in_usdc(&self, token_amount: f64) -> Result<f64, ClientError>  {
+        if token_amount == 0.0 {
+            return Ok(0.0);
+        }
+        
+        let url = "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112";
+        let response: serde_json::Value = reqwest::get(url)
+            .await
+            .map_err(|e: reqwest::Error| ClientError::Other(Box::new(e).to_string()))?
+            .json()
+            .await
+            .map_err(|e: reqwest::Error| ClientError::Other(Box::new(e).to_string()))?;
+    
+        let sol_price_str = response["data"]["So11111111111111111111111111111111111111112"]["price"]
+            .as_str()
+            .ok_or(ClientError::Other("Failed to find SOL price as a string".into()))?;
+
+        let sol_price_in_usdc: f64 = sol_price_str
+            .parse()
+            .map_err(|e: std::num::ParseFloatError| ClientError::Other(Box::new(e).to_string()))?;
+
+        let token_price_in_usdc = sol_price_in_usdc * token_amount;
+        Ok(token_price_in_usdc)
     }
 }
 
