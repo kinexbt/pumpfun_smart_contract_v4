@@ -1,115 +1,130 @@
-use rand::Rng;
-use bincode;
-use bs58;
-use reqwest;
-use serde::Deserialize;
-use serde_json::{json, Value};
+use std::fmt;
 use std::str::FromStr;
-use std::time::Duration;
-use tokio::sync::Mutex;
+use rand::seq::SliceRandom;
+use reqwest::Client;
+use serde_json::{json, Value};
+
 use anchor_client::solana_sdk::{
-    commitment_config::CommitmentConfig,
     pubkey::Pubkey,
-    signature::Signature,
     transaction::Transaction,
 };
-use crate::error::ClientError;
 
-pub const MAX_RETRIES: u8 = 3;
-pub const RETRY_DELAY: Duration = Duration::from_millis(200);
-
-#[derive(Debug, Clone)]
-pub struct TransactionConfig {
-    pub skip_preflight: bool,
-    pub preflight_commitment: CommitmentConfig,
-    pub encoding: String,
-    pub last_n_blocks: u64,
-}
-
-impl Default for TransactionConfig {
-    fn default() -> Self {
-        Self {
-            skip_preflight: true,
-            preflight_commitment: CommitmentConfig::confirmed(),
-            encoding: "base58".to_string(),
-            last_n_blocks: 100,
-        }
-    }
-}
+use crate::error::{ClientError, ClientResult};
 
 #[derive(Clone, Debug)]
 pub struct JitoClient {
-    endpoint: String,
-    client: reqwest::Client,
-    config: TransactionConfig,
+    base_url: String,
+    uuid: Option<String>,
+    client: Client,
+}
+
+#[derive(Debug)]
+pub struct PrettyJsonValue(pub Value);
+
+impl fmt::Display for PrettyJsonValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", serde_json::to_string_pretty(&self.0).unwrap())
+    }
+}
+
+impl From<Value> for PrettyJsonValue {
+    fn from(value: Value) -> Self {
+        PrettyJsonValue(value)
+    }
 }
 
 impl JitoClient {
-    pub fn new(endpoint: &str) -> Self {
+    pub fn new(base_url: &str, uuid: Option<String>) -> Self {
         Self {
-            endpoint: endpoint.to_string(),
-            client: reqwest::Client::new(),
-            config: TransactionConfig::default(),
+            base_url: base_url.to_string(),
+            uuid,
+            client: Client::new(),
         }
     }
 
-    pub async fn get_tip_account(&self) -> Result<Pubkey, ClientError> {
-        let response = self.send_request("getTipAccounts", json!([])).await?;
-
-        if let Some(accounts) = response["result"].as_array() {
-            if accounts.is_empty() {
-                return Err(ClientError::Other("No JITO tip accounts found".to_string()));
-            }
-
-            let random_index = rand::rngs::OsRng.gen_range(0..accounts.len());
-            if let Some(account) = accounts.get(random_index) {
-                if let Some(address) = account.as_str() {
-                    return Pubkey::from_str(address).map_err(|e| {
-                        ClientError::Parse(
-                            "Invalid tip account address".to_string(),
-                            e.to_string(),
-                        )
-                    });
-                }
-            }
-        }
-
-        Err(ClientError::Other("Failed to get Tip Account".to_string()))
-    }
-
-    pub async fn estimate_priority_fees(
-        &self,
-        account: &Pubkey,
-    ) -> Result<PriorityFeeEstimate, ClientError> {
-        let params = json!({
-            "last_n_blocks": self.config.last_n_blocks,
-            "account": account.to_string(),
-            "api_version": 2
+    async fn send_request(&self, endpoint: &str, method: &str, params: Option<Value>) -> ClientResult<Value> {
+        let url = format!("{}{}", self.base_url, endpoint);
+        
+        let data = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": method,
+            "params": params.unwrap_or(json!([]))
         });
 
-        let response = self.send_request("qn_estimatePriorityFees", params).await?;
+        // println!("Sending request to: {}", url);
+        // println!("Request body: {}", serde_json::to_string_pretty(&data).unwrap());
 
-        if let Some(result) = response.get("result") {
-            let estimate: PriorityFeeEstimate = serde_json::from_value(result.clone()).map_err(|e| {
-                ClientError::Parse(
-                    "Failed to parse priority fee estimate".to_string(),
-                    e.to_string(),
-                )
-            })?;
+        let response = self.client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&data)
+            .send()
+            .await
+            .map_err(|e| ClientError::Other(format!("Request failed: {}", e)))?;
 
-            Ok(estimate)
+        let status = response.status();
+        // println!("Response status: {}", status);
+
+        let body = response.json::<Value>().await
+            .map_err(|e| ClientError::Other(format!("Failed to parse response: {}", e)))?;
+        // println!("Response body: {}", serde_json::to_string_pretty(&body).unwrap());
+
+        Ok(body)
+    }
+
+    pub async fn get_tip_accounts(&self) -> ClientResult<Value> {
+        let endpoint = if let Some(uuid) = &self.uuid {
+            format!("/bundles?uuid={}", uuid)
         } else {
-            Err(ClientError::Parse(
-                "Invalid response format".to_string(),
-                "Missing result field".to_string(),
-            ))
+            "/bundles".to_string()
+        };
+
+        self.send_request(&endpoint, "getTipAccounts", None).await
+    }
+
+    // Get a random tip account
+    pub async fn get_tip_account(&self) -> ClientResult<Pubkey> {
+        let tip_accounts_response = self.get_tip_accounts().await?;
+        
+        let tip_accounts = tip_accounts_response["result"]
+            .as_array()
+            .ok_or_else(|| ClientError::Other("Failed to parse tip accounts as array".to_string()))?;
+
+        if tip_accounts.is_empty() {
+            return Err(ClientError::Other("No tip accounts available".to_string()));
         }
+
+        let random_account = tip_accounts
+            .choose(&mut rand::thread_rng())
+            .ok_or_else(|| ClientError::Other("Failed to choose random tip account".to_string()))?;
+
+        let address = random_account
+            .as_str()
+            .ok_or_else(|| ClientError::Other("Failed to parse tip account as string".to_string()))?;
+
+        Pubkey::from_str(address)
+            .map_err(|e| ClientError::Other(format!("Failed to parse pubkey: {}", e)))
+    }
+
+    pub async fn get_bundle_statuses(&self, bundle_uuids: Vec<String>) -> ClientResult<Value> {
+        let endpoint = if let Some(uuid) = &self.uuid {
+            format!("/bundles?uuid={}", uuid)
+        } else {
+            "/bundles".to_string()
+        };
+
+        // Construct the params as a list within a list
+        let params = json!([bundle_uuids]);
+
+        self.send_request(&endpoint, "getBundleStatuses", Some(params))
+            .await
     }
 
     pub async fn send_transaction(
         &self,
         transaction: &Transaction,
-    ) -> Result<Signature, ClientError> {
+    ) -> ClientResult<String> {
         let wire_transaction = bincode::serialize(transaction).map_err(|e| {
             ClientError::Parse(
                 "Transaction serialization failed".to_string(),
@@ -117,44 +132,17 @@ impl JitoClient {
             )
         })?;
 
-        let encoded_tx = bs58::encode(&wire_transaction).into_string();
+        let serialized_tx = bs58::encode(&wire_transaction).into_string();
 
-        for retry in 0..MAX_RETRIES {
-            match self.try_send_transaction(&encoded_tx).await {
-                Ok(signature) => {
-                    return Ok(Signature::from_str(&signature).map_err(|e| {
-                        ClientError::Parse(
-                            "Invalid signature".to_string(),
-                            e.to_string(),
-                        )
-                    })?);
-                }
-                Err(e) => {
-                    println!("Retry {} failed: {:?}", retry, e);
-                    if retry == MAX_RETRIES - 1 {
-                        return Err(e);
-                    }
-                    tokio::time::sleep(RETRY_DELAY).await;
-                }
-            }
-        }
+        // Prepare bundle for submission (array of transactions)
+        let bundle = json!([serialized_tx]);
 
-        Err(ClientError::Other("Max retries exceeded".to_string()))
-    }
+        // UUID for the bundle
+        let uuid = None;
 
-    async fn try_send_transaction(&self, encoded_tx: &str) -> Result<String, ClientError> {
-        let params = json!([
-            encoded_tx,
-            {
-                "skipPreflight": self.config.skip_preflight,
-                "preflightCommitment": self.config.preflight_commitment.commitment,
-                "encoding": self.config.encoding,
-                "maxRetries": MAX_RETRIES,
-                "minContextSlot": null
-            }
-        ]);
-
-        let response = self.send_request("sendTransaction", params).await?;
+        // Send bundle using Jito SDK
+        // println!("Sending bundle with 1 transaction...");
+        let response = self.send_bundle(Some(bundle), uuid).await?;
 
         response["result"]
             .as_str()
@@ -165,54 +153,83 @@ impl JitoClient {
             ))
     }
 
-    async fn send_request(&self, method: &str, params: Value) -> Result<Value, ClientError> {
-        let request_body = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": method,
-            "params": params
-        });
-
-        let response = self.client
-            .post(&self.endpoint)
-            .header("Content-Type", "application/json")
-            .json(&request_body)
-            .send()
+    pub async fn send_bundle(&self, params: Option<Value>, uuid: Option<&str>) -> ClientResult<Value> {
+        let mut endpoint = "/bundles".to_string();
+        
+        if let Some(uuid) = uuid {
+            endpoint = format!("{}?uuid={}", endpoint, uuid);
+        }
+    
+        // Ensure params is an array of transactions
+        let transactions = match params {
+            Some(Value::Array(transactions)) => {
+                if transactions.is_empty() {
+                    return Err(ClientError::Other("Bundle must contain at least one transaction".to_string()));
+                }
+                if transactions.len() > 5 {
+                    return Err(ClientError::Other("Bundle can contain at most 5 transactions".to_string()));
+                }
+                transactions
+            },
+            _ => return Err(ClientError::Other("Invalid bundle format: expected an array of transactions".to_string())),
+        };
+    
+        // Wrap the transactions array in another array
+        let params = json!([transactions]);
+    
+        // Send the wrapped transactions array
+        self.send_request(&endpoint, "sendBundle", Some(params))
             .await
-            .map_err(|e| ClientError::Solana(
-                "Request failed".to_string(),
-                e.to_string(),
-            ))?;
+    }
 
-        let response_data: Value = response.json().await.map_err(|e| {
-            ClientError::Parse(
-                "Invalid JSON response".to_string(),
-                e.to_string(),
-            )
-        })?;
+    pub async fn send_txn(&self, params: Option<Value>, bundle_only: bool) -> ClientResult<Value> {
+        let mut query_params = Vec::new();
 
-        if let Some(error) = response_data.get("error") {
-            return Err(ClientError::Solana(
-                "RPC error".to_string(),
-                error.to_string(),
-            ));
+        if bundle_only {
+            query_params.push("bundleOnly=true".to_string());
         }
 
-        Ok(response_data)
+        let endpoint = if query_params.is_empty() {
+            "/transactions".to_string()
+        } else {
+            format!("/transactions?{}", query_params.join("&"))
+        };
+
+        // Construct params as an array instead of an object
+        let params = match params {
+            Some(Value::Object(map)) => {
+                let tx = map.get("tx").and_then(Value::as_str).unwrap_or_default();
+                let skip_preflight = map.get("skipPreflight").and_then(Value::as_bool).unwrap_or(false);
+                json!([
+                    tx,
+                    {
+                        "encoding": "base64",
+                        "skipPreflight": skip_preflight
+                    }
+                ])
+            },
+            _ => json!([]),
+        };
+
+        self.send_request(&endpoint, "sendTransaction", Some(params)).await
     }
-}
 
-#[derive(Debug, Deserialize)]
-pub struct PriorityFeeEstimate {
-    pub recommended: u64,
-    pub per_compute_unit: PriorityFeeLevel,
-    pub per_transaction: PriorityFeeLevel,
-}
+    pub async fn get_in_flight_bundle_statuses(&self, bundle_uuids: Vec<String>) -> ClientResult<Value> {
+        let endpoint = if let Some(uuid) = &self.uuid {
+            format!("/bundles?uuid={}", uuid)
+        } else {
+            "/bundles".to_string()
+        };
 
-#[derive(Debug, Deserialize)]
-pub struct PriorityFeeLevel {
-    pub extreme: u64,  // 95th percentile
-    pub high: u64,     // 80th percentile
-    pub medium: u64,   // 60th percentile
-    pub low: u64,      // 40th percentile
+        // Construct the params as a list within a list
+        let params = json!([bundle_uuids]);
+
+        self.send_request(&endpoint, "getInflightBundleStatuses", Some(params))
+            .await
+    }
+
+    // Helper method to convert Value to PrettyJsonValue
+    pub fn prettify(value: Value) -> PrettyJsonValue {
+        PrettyJsonValue(value)
+    }
 }

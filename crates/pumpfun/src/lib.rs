@@ -25,6 +25,7 @@ use anchor_spl::associated_token::{
     get_associated_token_address,
     spl_associated_token_account::instruction::create_associated_token_account,
 };
+
 use instruction::logs_subscribe;
 use instruction::logs_subscribe::SubscriptionHandle;
 use instruction::logs_events::DexEvent;
@@ -41,6 +42,7 @@ use crate::error::ClientError;
 const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
 const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 10_000_000;
 const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 500_000;
+const JITO_TIP_AMOUNT: u64 = 1_000; // 0.000001 SOL
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,7 +89,7 @@ impl PumpFun {
             commitment.unwrap_or(CommitmentConfig::confirmed())
         );   
 
-        let jito_client = jito_url.map(|url| JitoClient::new(&url));
+        let jito_client = jito_url.map(|url| JitoClient::new(&url, None));
 
         Self {
             rpc,
@@ -251,16 +253,13 @@ impl PumpFun {
         mint: &Pubkey,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-        priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, ClientError> {
+    ) -> Result<String, ClientError> {
         let start_time = Instant::now();
 
         let jito_client = self.jito_client.as_ref()
             .ok_or_else(|| ClientError::Other("Jito client not found".to_string()))?;
 
         let global_account = self.get_global_account()?;
-        let bonding_curve_pda = Self::get_bonding_curve_pda(mint)
-            .ok_or(ClientError::BondingCurveNotFound)?;
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
         let buy_amount = bonding_curve_account
             .get_buy_price(amount_sol)
@@ -268,12 +267,9 @@ impl PumpFun {
         let buy_amount_with_slippage =
             utils::calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
-        let (unit_limit, _unit_price) = self.get_compute_units(priority_fee);
-        let mut instructions = self.create_priority_fee_instructions(priority_fee);
+        let mut instructions = vec![];
 
-        let priority_fees = jito_client.estimate_priority_fees(&bonding_curve_pda).await?;
         let tip_account = jito_client.get_tip_account().await?;
-
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         if self.rpc.get_account(&ata).is_err() {
             instructions.push(create_associated_token_account(
@@ -293,14 +289,12 @@ impl PumpFun {
                 _max_sol_cost: buy_amount_with_slippage,
             },
         ));
-
-        let total_priority_fee = self.calculate_priority_fee(priority_fees.per_compute_unit.extreme, unit_limit);
         
         instructions.push(
             system_instruction::transfer(
                 &self.payer.pubkey(),
                 &tip_account,
-                total_priority_fee,
+                JITO_TIP_AMOUNT,
             ),
         );
 
@@ -396,14 +390,36 @@ impl PumpFun {
         self.sell(mint, Some(amount), slippage_basis_points, priority_fee).await
     }
 
+    pub async fn sell_by_percent_with_jito(
+        &self,
+        mint: &Pubkey,
+        percent: u64,
+        slippage_basis_points: Option<u64>,
+    ) -> Result<String, ClientError> {
+        if percent > 100 {
+            return Err(ClientError::Other("Percentage must be between 0 and 100".to_string()));
+        }
+
+        let ata = get_associated_token_address(&self.payer.pubkey(), mint);
+        let balance = self.rpc.get_token_account_balance(&ata)?;
+        let balance_u64 = balance.amount.parse::<u64>()
+            .map_err(|_| ClientError::Other("Failed to parse token balance".to_string()))?;
+        
+        if balance_u64 == 0 {
+            return Err(ClientError::Other("Balance is 0".to_string()));
+        }
+
+        let amount = balance_u64 * percent / 100;
+        self.sell_with_jito(mint, Some(amount), slippage_basis_points).await
+    }
+
     /// Sell tokens using Jito
     pub async fn sell_with_jito(
         &self,
         mint: &Pubkey,
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
-        priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, ClientError> {
+    ) -> Result<String, ClientError> {
         let start_time = Instant::now();
 
         let jito_client = self.jito_client.as_ref()
@@ -420,8 +436,6 @@ impl PumpFun {
         }
 
         let global_account = self.get_global_account()?;
-        let bonding_curve_pda = Self::get_bonding_curve_pda(mint)
-            .ok_or(ClientError::BondingCurveNotFound)?;
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
         let min_sol_output = bonding_curve_account
             .get_sell_price(amount, global_account.fee_basis_points)
@@ -431,12 +445,8 @@ impl PumpFun {
             slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
         );
 
-        let (unit_limit, _unit_price) = self.get_compute_units(priority_fee);
-        let mut instructions = self.create_priority_fee_instructions(priority_fee);
-
-        let priority_fees = jito_client.estimate_priority_fees(&bonding_curve_pda).await?;
+        let mut instructions = vec![];
         let tip_account = jito_client.get_tip_account().await?;
-
         instructions.push(instruction::sell(
             &self.payer.clone(),
             mint,
@@ -447,13 +457,11 @@ impl PumpFun {
             },
         ));
 
-        let total_priority_fee = self.calculate_priority_fee(priority_fees.per_compute_unit.extreme, unit_limit);
-
         instructions.push(
             system_instruction::transfer(
                 &self.payer.pubkey(),
                 &tip_account,
-                total_priority_fee,
+                JITO_TIP_AMOUNT,
             ),
         );
 
@@ -485,18 +493,6 @@ impl PumpFun {
         instructions
     }
 
-    fn get_compute_units(&self, priority_fee: Option<PriorityFee>) -> (u32, u64) {
-        let fee = priority_fee.unwrap_or(PriorityFee::default());
-        let unit_limit = fee.limit.unwrap_or(DEFAULT_COMPUTE_UNIT_LIMIT);
-        let unit_price = fee.price.unwrap_or(DEFAULT_COMPUTE_UNIT_PRICE);
-        (unit_limit, unit_price)
-    }
-
-    fn calculate_priority_fee(&self, priority_fee_per_cu: u64, unit_limit: u32) -> u64 {
-        let total_priority_fee_microlamports = priority_fee_per_cu as u128 * unit_limit as u128;
-        (total_priority_fee_microlamports / 1_000_000) as u64
-    }
-
     // Public interface methods
     pub fn get_payer_pubkey(&self) -> Pubkey {
         self.payer.pubkey()
@@ -504,6 +500,10 @@ impl PumpFun {
 
     pub fn get_token_balance(&self, account: &Pubkey, mint: &Pubkey) -> Result<u64, ClientError> {
         let ata = get_associated_token_address(account, mint);
+        if self.rpc.get_account(&ata).is_err() {
+            return Ok(0);
+        }
+
         let balance = self.rpc.get_token_account_balance(&ata)?;
         balance.amount.parse::<u64>()
             .map_err(|_| ClientError::Other("Failed to parse token balance".to_string()))
