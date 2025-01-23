@@ -1,9 +1,9 @@
-use anchor_client::solana_client::{
+use solana_client::{
     nonblocking::pubsub_client::PubsubClient,
     rpc_config::{RpcTransactionLogsConfig, RpcTransactionLogsFilter}
 };
 
-use anchor_client::solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;

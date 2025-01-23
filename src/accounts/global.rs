@@ -23,7 +23,7 @@
 //! - `new`: Creates a new global account instance
 //! - `get_initial_buy_price`: Calculates the initial amount of tokens received for a given SOL amount
 
-use anchor_client::solana_sdk::pubkey::Pubkey;
+use solana_sdk::pubkey::Pubkey;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Represents the global configuration account for token pricing and fees

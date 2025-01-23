@@ -12,15 +12,13 @@
 //! - `BorshError`: An error occurred while serializing or deserializing data using Borsh.
 //! - `SolanaClientError`: An error occurred while interacting with the Solana RPC client.
 //! - `UploadMetadataError`: An error occurred while uploading metadata to IPFS.
-//! - `AnchorClientError`: An error occurred while interacting with the Anchor client.
 //! - `InvalidInput`: Invalid input parameters were provided.
 //! - `InsufficientFunds`: Insufficient funds for a transaction.
 //! - `SimulationError`: Transaction simulation failed.
 //! - `RateLimitExceeded`: Rate limit exceeded.
 
-use anchor_client::solana_client;
 use serde_json::Error;
-use anchor_client::solana_client::{
+use solana_client::{
     client_error::ClientError as SolanaClientError, 
     pubsub_client::PubsubClientError
 };
@@ -38,8 +36,6 @@ pub enum ClientError {
     SolanaClientError(solana_client::client_error::ClientError),
     /// Error uploading metadata
     UploadMetadataError(Box<dyn std::error::Error>),
-    /// Error from Anchor client
-    AnchorClientError(anchor_client::ClientError),
     /// Invalid input parameters
     InvalidInput(&'static str),
     /// Insufficient funds for transaction
@@ -94,7 +90,6 @@ impl std::fmt::Display for ClientError {
             Self::BorshError(err) => write!(f, "Borsh serialization error: {}", err),
             Self::SolanaClientError(err) => write!(f, "Solana client error: {}", err),
             Self::UploadMetadataError(err) => write!(f, "Metadata upload error: {}", err),
-            Self::AnchorClientError(err) => write!(f, "Anchor client error: {}", err),
             Self::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
             Self::InsufficientFunds => write!(f, "Insufficient funds for transaction"),
             Self::SimulationError(msg) => write!(f, "Transaction simulation failed: {}", msg),
@@ -126,7 +121,6 @@ impl std::error::Error for ClientError {
             Self::BorshError(err) => Some(err),
             Self::SolanaClientError(err) => Some(err),
             Self::UploadMetadataError(err) => Some(err.as_ref()),
-            Self::AnchorClientError(err) => Some(err),
             Self::ExternalService(_) => None,
             Self::Redis(_, _) => None,
             Self::Solana(_, _) => None,

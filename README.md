@@ -28,7 +28,7 @@ use mai3_pumpfun_sdk::instruction::{
     logs_events::DexEvent,
     logs_subscribe::{tokens_subscription, stop_subscription}
 };
-use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::commitment_config::CommitmentConfig;
 
 println!("Starting token subscription...");
 
@@ -74,14 +74,12 @@ println!("Ended token subscription.");
 
 ### pumpfun Create, Buy, Sell
 ```rust
-use anchor_client::{
-    solana_sdk::{
-        native_token::LAMPORTS_PER_SOL,
-        signature::{Keypair, Signature},
-        signer::Signer,
-    },
-    Cluster,
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signature},
+    signer::Signer,
 };
+
 use mai3_pumpfun_sdk::{accounts::BondingCurveAccount, utils::CreateTokenMetadata, PriorityFee, PumpFun};
 
 // Create a new PumpFun client

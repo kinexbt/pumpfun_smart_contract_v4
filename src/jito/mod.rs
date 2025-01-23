@@ -4,7 +4,7 @@ use rand::seq::SliceRandom;
 use reqwest::Client;
 use serde_json::{json, Value};
 
-use anchor_client::solana_sdk::{
+use solana_sdk::{
     pubkey::Pubkey,
     transaction::Transaction,
 };

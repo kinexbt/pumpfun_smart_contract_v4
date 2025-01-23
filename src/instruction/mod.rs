@@ -23,15 +23,62 @@ pub use logs_events::*;
 pub use logs_subscribe::*;
 
 use crate::{constants, PumpFun};
-use anchor_client::anchor_lang::InstructionData;
-use anchor_spl::associated_token::get_associated_token_address;
-use pumpfun_cpi as cpi;
+use spl_associated_token_account::get_associated_token_address;
+
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer,
 };
+
+pub struct Create {
+    pub _name: String,
+    pub _symbol: String,
+    pub _uri: String,
+}
+
+impl Create {
+    pub fn data(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(8 + 8 + 8);
+        data.extend_from_slice(&[24, 30, 200, 40, 5, 28, 7, 119]); // discriminator
+        data.extend_from_slice(&self._name.as_bytes());
+        data.extend_from_slice(&self._symbol.as_bytes());
+        data.extend_from_slice(&self._uri.as_bytes());
+        data
+    }
+}
+
+pub struct Buy {
+    pub _amount: u64,
+    pub _max_sol_cost: u64,
+}
+
+impl Buy {
+    pub fn data(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(8 + 8 + 8);
+        data.extend_from_slice(&[102, 6, 61, 18, 1, 218, 235, 234]); // discriminator
+        data.extend_from_slice(&self._amount.to_le_bytes());
+        data.extend_from_slice(&self._max_sol_cost.to_le_bytes());
+        data
+    }
+}
+
+pub struct Sell {
+    pub _amount: u64,
+    pub _min_sol_output: u64,
+}
+
+impl Sell {
+    pub fn data(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(8 + 8 + 8);
+        data.extend_from_slice(&[51, 230, 133, 164, 1, 127, 131, 173]); // discriminator
+        data.extend_from_slice(&self._amount.to_le_bytes());
+        data.extend_from_slice(&self._min_sol_output.to_le_bytes());
+        data
+    }
+}
+
 
 /// Creates an instruction to create a new token with bonding curve
 ///
@@ -46,7 +93,7 @@ use solana_sdk::{
 /// # Returns
 ///
 /// Returns a Solana instruction that when executed will create the token and its accounts
-pub fn create(payer: &Keypair, mint: &Keypair, args: cpi::instruction::Create) -> Instruction {
+pub fn create(payer: &Keypair, mint: &Keypair, args: Create) -> Instruction {
     let bonding_curve: Pubkey = PumpFun::get_bonding_curve_pda(&mint.pubkey()).unwrap();
     Instruction::new_with_bytes(
         constants::accounts::PUMPFUN,
@@ -93,7 +140,7 @@ pub fn buy(
     payer: &Keypair,
     mint: &Pubkey,
     fee_recipient: &Pubkey,
-    args: cpi::instruction::Buy,
+    args: Buy,
 ) -> Instruction {
     let bonding_curve: Pubkey = PumpFun::get_bonding_curve_pda(mint).unwrap();
     Instruction::new_with_bytes(
@@ -136,7 +183,7 @@ pub fn sell(
     payer: &Keypair,
     mint: &Pubkey,
     fee_recipient: &Pubkey,
-    args: cpi::instruction::Sell,
+    args: Sell,
 ) -> Instruction {
     let bonding_curve: Pubkey = PumpFun::get_bonding_curve_pda(mint).unwrap();
     Instruction::new_with_bytes(

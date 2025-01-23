@@ -6,7 +6,7 @@ use crate::instruction::{
     logs_filters::LogFilter
 };
 
-use anchor_client::solana_sdk::pubkey::Pubkey;
+use solana_sdk::pubkey::Pubkey;
 
 pub async fn process_logs<F>(
     signature: &str,

@@ -2,7 +2,7 @@ use mai3_pumpfun_sdk::instruction::{
     logs_events::DexEvent,
     logs_subscribe::{tokens_subscription, stop_subscription}
 };
-use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::commitment_config::CommitmentConfig;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,29 +1,25 @@
-#![doc = include_str!("../RUSTDOC.md")]
-
 pub mod accounts;
 pub mod constants;
 pub mod error;
 pub mod instruction;
 pub mod utils;
 pub mod jito;
+pub mod grpc;
 
-use anchor_client::{
-    solana_client::rpc_client::RpcClient,
-    solana_sdk::{
-        commitment_config::CommitmentConfig,
-        pubkey::Pubkey,
-        signature::{Keypair, Signature},
-        signer::Signer,
-        instruction::Instruction,
-        system_instruction,
-        compute_budget::ComputeBudgetInstruction,
-        transaction::Transaction,
-    },
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    pubkey::Pubkey,
+    signature::{Keypair, Signature},
+    signer::Signer,
+    instruction::Instruction,
+    system_instruction,
+    compute_budget::ComputeBudgetInstruction,
+    transaction::Transaction,
 };
-use anchor_client::Cluster;
-use anchor_spl::associated_token::{
+use spl_associated_token_account::{
     get_associated_token_address,
-    spl_associated_token_account::instruction::create_associated_token_account,
+    create_associated_token_account,
 };
 
 use instruction::logs_subscribe;
@@ -31,12 +27,12 @@ use instruction::logs_subscribe::SubscriptionHandle;
 use instruction::logs_events::DexEvent;
 
 use std::sync::Arc;
-use borsh::BorshDeserialize;
 use std::time::Instant;
-pub use pumpfun_cpi as cpi;
 
 use crate::jito::JitoClient;
 use crate::error::ClientError;
+
+use borsh::BorshDeserialize;
 
 // Constants
 const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
@@ -79,13 +75,13 @@ impl Clone for PumpFun {
 impl PumpFun {
     /// Create a new PumpFun client instance
     pub fn new(
-        cluster: Cluster,
+        rpc_url: String,
         commitment: Option<CommitmentConfig>,
         payer: Arc<Keypair>,
         jito_url: Option<String>,
     ) -> Self {
         let rpc = RpcClient::new_with_commitment(
-            cluster.url(),
+            rpc_url,
             commitment.unwrap_or(CommitmentConfig::confirmed())
         );   
 
@@ -114,7 +110,7 @@ impl PumpFun {
         instructions.push(instruction::create(
             &self.payer.clone(),
             mint,
-            cpi::instruction::Create {
+            instruction::Create {
                 _name: ipfs.metadata.name,
                 _symbol: ipfs.metadata.symbol,
                 _uri: ipfs.metadata.image,
@@ -157,7 +153,7 @@ impl PumpFun {
         instructions.push(instruction::create(
             &self.payer.clone(),
             mint,
-            cpi::instruction::Create {
+            instruction::Create {
                 _name: ipfs.metadata.name,
                 _symbol: ipfs.metadata.symbol,
                 _uri: ipfs.metadata.image,
@@ -170,7 +166,6 @@ impl PumpFun {
                 &self.payer.pubkey(),
                 &self.payer.pubkey(),
                 &mint.pubkey(),
-                &constants::accounts::TOKEN_PROGRAM,
             ));
         }
 
@@ -178,7 +173,7 @@ impl PumpFun {
             &self.payer.clone(),
             &mint.pubkey(),
             &global_account.fee_recipient,
-            cpi::instruction::Buy {
+            instruction::Buy {
                 _amount: buy_amount,
                 _max_sol_cost: buy_amount_with_slippage,
             },
@@ -221,7 +216,6 @@ impl PumpFun {
                 &self.payer.pubkey(),
                 &self.payer.pubkey(),
                 mint,
-                &constants::accounts::TOKEN_PROGRAM,
             ));
         }
 
@@ -229,7 +223,7 @@ impl PumpFun {
             &self.payer.clone(),
             mint,
             &global_account.fee_recipient,
-            cpi::instruction::Buy {
+            instruction::Buy {
                 _amount: buy_amount,
                 _max_sol_cost: buy_amount_with_slippage,
             },
@@ -276,7 +270,6 @@ impl PumpFun {
                 &self.payer.pubkey(),
                 &self.payer.pubkey(),
                 mint,
-                &constants::accounts::TOKEN_PROGRAM,
             ));
         }
 
@@ -284,7 +277,7 @@ impl PumpFun {
             self.payer.as_ref(),
             mint,
             &global_account.fee_recipient,
-            cpi::instruction::Buy {
+            instruction::Buy {
                 _amount: buy_amount,
                 _max_sol_cost: buy_amount_with_slippage,
             },
@@ -346,7 +339,7 @@ impl PumpFun {
             &self.payer.clone(),
             mint,
             &global_account.fee_recipient,
-            cpi::instruction::Sell {
+            instruction::Sell {
                 _amount: amount,
                 _min_sol_output: min_sol_output_with_slippage,
             },
@@ -451,7 +444,7 @@ impl PumpFun {
             &self.payer.clone(),
             mint,
             &global_account.fee_recipient,
-            cpi::instruction::Sell {
+            instruction::Sell {
                 _amount: amount,
                 _min_sol_output: min_sol_output_with_slippage,
             },
@@ -523,17 +516,17 @@ impl PumpFun {
 
     // PDA related methods
     pub fn get_global_pda() -> Pubkey {
-        Pubkey::find_program_address(&[constants::seeds::GLOBAL_SEED], &cpi::ID).0
+        Pubkey::find_program_address(&[constants::seeds::GLOBAL_SEED], &constants::accounts::PUMPFUN).0
     }
 
     pub fn get_mint_authority_pda() -> Pubkey {
-        Pubkey::find_program_address(&[constants::seeds::MINT_AUTHORITY_SEED], &cpi::ID).0
+        Pubkey::find_program_address(&[constants::seeds::MINT_AUTHORITY_SEED], &constants::accounts::PUMPFUN).0
     }
 
     pub fn get_bonding_curve_pda(mint: &Pubkey) -> Option<Pubkey> {
         Pubkey::try_find_program_address(
             &[constants::seeds::BONDING_CURVE_SEED, mint.as_ref()],
-            &cpi::ID
+            &constants::accounts::PUMPFUN
         ).map(|(pubkey, _)| pubkey)
     }
 

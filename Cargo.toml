@@ -1,3 +1,44 @@
-[workspace]
-members = ["crates/*"]
-resolver = "2"
+[package]
+name = "mai3-pumpfun-sdk"
+version = "2.4.5"
+edition = "2021"
+authors = ["William <william@mai3.io>"]
+repository = "https://github.com/MiracleAI-Labs/pumpfun-sdk"
+description = "Rust SDK to interact with the Pump.fun Solana program."
+license = "MIT"
+keywords = ["solana", "memecoins", "pumpfun", "pumpfun-sdk"]
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+solana-sdk = "2.1.7"
+solana-client = "2.1.7"
+solana-transaction-status = "2.1.7"
+spl-token = "7.0.0"
+spl-associated-token-account = "6.0.0"
+borsh = { version = "1.5.3", features = ["derive"] }
+isahc = "1.7.2"
+mpl-token-metadata = "5.1.0"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.134"
+futures = "0.3.31"
+futures-util = "0.3.31"
+base64 = "0.22.1"
+bs58 = "0.5.1"
+rand = "0.8.5"
+bincode = "1.3.3"
+anyhow = "1.0.90"
+reqwest = { version = "0.11.27", features = ["json"] }
+tonic = { version = "0.12.3", features = ["tls", "tls-webpki-roots", "tls-roots"] }
+tokio = { version = "1.42.0" , features = ["full", "rt-multi-thread"]}
+yellowstone-grpc-client = {  version = "4.1.0" }
+yellowstone-grpc-proto = {  version = "4.1.1" }
+rustls = { version = "0.23.20", features = ["ring"] }
+dotenvy = "0.15.7"
+pretty_env_logger = "0.5.0"
+log = "0.4.22"
+chrono = "0.4.39"
+regex = "1"
+
