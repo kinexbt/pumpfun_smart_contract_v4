@@ -1,7 +1,7 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 use crate::error::{ClientError, ClientResult};
-use crate::instruction::{
+use crate::common::{
     logs_data::{DexInstruction, CreateTokenInfo, TradeInfo}, 
     logs_filters::LogFilter
 };

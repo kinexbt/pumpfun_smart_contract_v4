@@ -5,6 +5,7 @@ pub mod instruction;
 pub mod utils;
 pub mod jito;
 pub mod grpc;
+pub mod common;
 
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
@@ -22,9 +23,9 @@ use spl_associated_token_account::{
     create_associated_token_account,
 };
 
-use instruction::logs_subscribe;
-use instruction::logs_subscribe::SubscriptionHandle;
-use instruction::logs_events::DexEvent;
+use common::logs_subscribe;
+use common::logs_subscribe::SubscriptionHandle;
+use common::logs_events::DexEvent;
 
 use std::sync::Arc;
 use std::time::Instant;

@@ -5,9 +5,27 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use regex::Regex;
 use solana_sdk::pubkey::Pubkey;
 
-use super::myerror::AppError;
+use crate::error::AppError;
 
 pub const PROGRAM_DATA: &str = "Program data: ";
+
+#[derive(Debug)]
+pub enum PumpfunEvent {
+    NewToken(CreateEvent),
+    NewUserTrade(TradeEvent),
+    NewBotTrade(TradeEvent),
+    Error(String),
+}
+
+#[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
+pub struct CreateEvent {
+    pub name: String,
+    pub symbol: String,
+    pub uri: String,
+    pub mint: Pubkey,
+    pub bonding_curve: Pubkey,
+    pub user: Pubkey,
+}
 
 #[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct TradeEvent {
@@ -51,6 +69,12 @@ pub trait EventTrait: Sized + std::fmt::Debug {
     fn from_bytes(bytes: &[u8]) -> Result<Self, AppError>;
 }
 
+impl EventTrait for CreateEvent {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
+        CreateEvent::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    }
+}
+
 impl EventTrait for TradeEvent {
     fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
         TradeEvent::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
@@ -73,8 +97,10 @@ impl EventTrait for SwapBaseInLog {
 pub struct PumpEvent {}
 
 impl PumpEvent {
-    pub fn parse_logs<T: EventTrait + Clone>(logs: &Vec<String>) -> Option<T> {
-        let mut event: Option<T> = None;
+    pub fn parse_logs(logs: &Vec<String>) -> (Option<CreateEvent>, Option<TradeEvent>) {
+        let mut create_event: Option<CreateEvent> = None;
+        let mut trade_event: Option<TradeEvent> = None;
+
         if !logs.is_empty() {
             let logs_iter = logs.iter().peekable();
 
@@ -83,13 +109,22 @@ impl PumpEvent {
                     let borsh_bytes = general_purpose::STANDARD.decode(log).unwrap();
                     let slice: &[u8] = &borsh_bytes[8..];
 
-                    if let Ok(e) = T::from_bytes(slice) {
-                        event = Some(e);
+                    if create_event.is_none() {
+                        if let Ok(e) = CreateEvent::from_bytes(slice) {
+                            create_event = Some(e);
+                            continue;
+                        }
+                    }
+
+                    if trade_event.is_none() {
+                        if let Ok(e) = TradeEvent::from_bytes(slice) {
+                            trade_event = Some(e);
+                        }
                     }
                 }
             }
         }
-        event
+        (create_event, trade_event)
     }
 }
 

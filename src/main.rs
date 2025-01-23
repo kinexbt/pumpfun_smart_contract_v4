@@ -1,4 +1,4 @@
-use mai3_pumpfun_sdk::instruction::{
+use mai3_pumpfun_sdk::common::{
     logs_events::DexEvent,
     logs_subscribe::{tokens_subscription, stop_subscription}
 };

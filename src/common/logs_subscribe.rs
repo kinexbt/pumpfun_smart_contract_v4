@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use futures::StreamExt;
-use crate::{constants, instruction::{
+use crate::{constants, common::{
     logs_data::DexInstruction, logs_events::DexEvent, logs_filters::LogFilter
 }};
 
