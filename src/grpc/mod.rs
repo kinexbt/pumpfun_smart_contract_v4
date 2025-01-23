@@ -22,10 +22,6 @@ use crate::common::event::PumpfunEvent;
 
 // 类型别名定义
 type TransactionsFilterMap = HashMap<String, SubscribeRequestFilterTransactions>;
-type GrpcStreamResult = GeyserGrpcClientResult<(
-    Box<dyn Sink<SubscribeRequest, Error = mpsc::SendError> + Unpin + Send>,
-    Box<dyn Stream<Item = Result<SubscribeUpdate, Status>> + Unpin + Send>,
-)>;
 
 // 常量定义
 const AMM_V4: Pubkey = pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
@@ -303,4 +299,34 @@ impl YellowstoneGrpc {
             _ => Err(AppError::from(anyhow!("Invalid program_id")))
         }
     }
+}
+
+async fn subscribe_pumpfun() -> Result<(), AppError> {
+    // 创建YellowstoneGrpc实例
+    let endpoint = "https://grpc.mainnet.solana.com".to_string();
+    let client = YellowstoneGrpc::new(endpoint);
+
+    // 定义回调函数
+    let callback = |event: PumpfunEvent| {
+        match event {
+            PumpfunEvent::NewToken(token_info) => {
+                println!("收到新代币事件: {:?}", token_info);
+            },
+            PumpfunEvent::NewUserTrade(trade_info) => {
+                println!("收到用户交易事件: {:?}", trade_info);
+            },
+            PumpfunEvent::NewBotTrade(trade_info) => {
+                println!("收到机器人交易事件: {:?}", trade_info);
+            },
+            PumpfunEvent::Error(err) => {
+                println!("收到错误: {}", err);
+            }
+        }
+    };
+
+    // 订阅事件
+    let bot_wallet = None; // 可以设置为Some(bot_pubkey)来区分机器人交易
+    client.subscribe_pumpfun(callback, bot_wallet).await?;
+
+    Ok(())
 }
