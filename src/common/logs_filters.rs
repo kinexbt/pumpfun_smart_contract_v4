@@ -65,7 +65,7 @@ impl LogFilter {
                                 "trade" => {
                                     if let Ok(trade_info) = parse_trade_data(&program_data) {
                                         if let Some(bot_wallet_pubkey) = bot_wallet {
-                                            if trade_info.user == bot_wallet_pubkey.to_string() {
+                                            if trade_info.user.to_string() == bot_wallet_pubkey.to_string() {
                                                 instructions.push(DexInstruction::BotTrade(trade_info));
                                             } else {
                                                 instructions.push(DexInstruction::UserTrade(trade_info));

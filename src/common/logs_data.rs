@@ -1,4 +1,8 @@
-use serde::{Serialize, Deserialize};
+use anyhow::anyhow;
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_sdk::pubkey::Pubkey;
+
+use crate::error::AppError;
 
 #[derive(Debug)]
 pub enum DexInstruction {
@@ -8,30 +12,78 @@ pub enum DexInstruction {
     Other,
 }
 
-// 添加新的数据结构
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct CreateTokenInfo {
-    pub signature: String,
     pub name: String,
     pub symbol: String,
     pub uri: String,
-    pub mint: String,
-    pub bonding_curve: String,
-    pub user: String,
+    pub mint: Pubkey,
+    pub bonding_curve: Pubkey,
+    pub user: Pubkey,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct TradeInfo {
-    pub signature: String,
-    pub mint: String,
-    pub bonding_curve: String,
+    pub mint: Pubkey,
     pub sol_amount: u64,
     pub token_amount: u64,
     pub is_buy: bool,
-    pub user: String,
+    pub user: Pubkey,
     pub timestamp: i64,
     pub virtual_sol_reserves: u64,
     pub virtual_token_reserves: u64,
     pub real_sol_reserves: u64,
     pub real_token_reserves: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
+pub struct CompleteInfo {
+    pub user: Pubkey,
+    pub mint: Pubkey,
+    pub bonding_curve: Pubkey,
+    pub timestamp: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
+pub struct SwapBaseInLog {
+    pub log_type: u8,
+    // input
+    pub amount_in: u64,
+    pub minimum_out: u64,
+    pub direction: u64,
+    // user info
+    pub user_source: u64,
+    // pool info
+    pub pool_coin: u64,
+    pub pool_pc: u64,
+    // calc result
+    pub out_amount: u64,
+}
+
+pub trait EventTrait: Sized + std::fmt::Debug {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError>;
+}
+
+impl EventTrait for CreateTokenInfo {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
+        CreateTokenInfo::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    }
+}
+
+impl EventTrait for TradeInfo {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
+        TradeInfo::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    }
+}
+
+impl EventTrait for CompleteInfo {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
+        CompleteInfo::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    }
+}
+
+impl EventTrait for SwapBaseInLog {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
+        SwapBaseInLog::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    }
 }

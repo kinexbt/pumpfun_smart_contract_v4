@@ -18,9 +18,9 @@ solana-client = "2.1.7"
 solana-transaction-status = "2.1.7"
 spl-token = "7.0.0"
 spl-associated-token-account = "6.0.0"
+mpl-token-metadata = "5.1.0"
 borsh = { version = "1.5.3", features = ["derive"] }
 isahc = "1.7.2"
-mpl-token-metadata = "5.1.0"
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.134"
 futures = "0.3.31"

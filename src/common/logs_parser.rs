@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 use crate::error::{ClientError, ClientResult};
@@ -92,13 +94,12 @@ pub fn parse_create_token_data(data: &str) -> ClientResult<CreateTokenInfo> {
     let user = bs58::encode(&decoded[cursor..cursor+32]).into_string();
 
     Ok(CreateTokenInfo {
-        signature: String::new(),
         name,
         symbol,
         uri,
-        mint,
-        bonding_curve,
-        user,
+        mint: Pubkey::from_str(&mint).unwrap(),
+        bonding_curve: Pubkey::from_str(&bonding_curve).unwrap(),
+        user: Pubkey::from_str(&user).unwrap(),
     })
 }
 
@@ -157,13 +158,11 @@ pub fn parse_trade_data(data: &str) -> ClientResult<TradeInfo> {
     let real_token_reserves = u64::from_le_bytes(decoded[cursor..cursor + 8].try_into().unwrap());
 
     Ok(TradeInfo {
-        signature: String::new(),
-        mint,
-        bonding_curve: String::new(),
+        mint: Pubkey::from_str(&mint).unwrap(),
         sol_amount,
         token_amount,
         is_buy,
-        user,
+        user: Pubkey::from_str(&user).unwrap(),
         timestamp,
         virtual_sol_reserves,
         virtual_token_reserves,

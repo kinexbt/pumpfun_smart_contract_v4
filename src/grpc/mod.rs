@@ -16,9 +16,9 @@ use solana_transaction_status::{
 };
 use anyhow::anyhow;
 
-use crate::common::event::{PumpEvent, RaydiumEvent, SwapBaseInLog, TradeEvent};
+use crate::common::logs_events::{PumpfunEvent, RaydiumEvent};
+use crate::common::logs_data::SwapBaseInLog;
 use crate::error::AppError;
-use crate::common::event::PumpfunEvent;
 
 // 类型别名定义
 type TransactionsFilterMap = HashMap<String, SubscribeRequestFilterTransactions>;
@@ -262,7 +262,7 @@ impl YellowstoneGrpc {
                     info!("RaydiumEvent {:#?}", event);
                 }
                 SwapType::Pump => {
-                    let (create_event, trade_event) = PumpEvent::parse_logs(logs);
+                    let (create_event, trade_event) = PumpfunEvent::parse_logs(logs);
                     if let Some(create_event) = create_event {
                         callback(PumpfunEvent::NewToken(create_event));
                     }
@@ -301,7 +301,7 @@ impl YellowstoneGrpc {
     }
 }
 
-async fn subscribe_pumpfun() -> Result<(), AppError> {
+async fn test_subscribe_pumpfun() -> Result<(), AppError> {
     // 创建YellowstoneGrpc实例
     let endpoint = "https://grpc.mainnet.solana.com".to_string();
     let client = YellowstoneGrpc::new(endpoint);
