@@ -20,12 +20,13 @@ use solana_sdk::{
 };
 use spl_associated_token_account::{
     get_associated_token_address,
-    create_associated_token_account,
+    instruction::create_associated_token_account,
 };
 
 use common::logs_subscribe;
 use common::logs_subscribe::SubscriptionHandle;
 use common::logs_events::DexEvent;
+use spl_token::instruction::close_account;
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -167,6 +168,7 @@ impl PumpFun {
                 &self.payer.pubkey(),
                 &self.payer.pubkey(),
                 &mint.pubkey(),
+                &constants::accounts::TOKEN_PROGRAM,
             ));
         }
 
@@ -217,6 +219,7 @@ impl PumpFun {
                 &self.payer.pubkey(),
                 &self.payer.pubkey(),
                 mint,
+                &constants::accounts::TOKEN_PROGRAM,
             ));
         }
 
@@ -271,6 +274,7 @@ impl PumpFun {
                 &self.payer.pubkey(),
                 &self.payer.pubkey(),
                 mint,
+                &constants::accounts::TOKEN_PROGRAM,
             ));
         }
 
@@ -345,6 +349,14 @@ impl PumpFun {
                 _min_sol_output: min_sol_output_with_slippage,
             },
         ));
+
+        instructions.push(close_account(
+            &spl_token::ID,
+            &ata,
+            &self.payer.pubkey(),
+            &self.payer.pubkey(),
+            &[&self.payer.pubkey()],
+        ).unwrap());
 
         let recent_blockhash = self.rpc.get_latest_blockhash()?;
         let transaction = Transaction::new_signed_with_payer(
@@ -450,6 +462,14 @@ impl PumpFun {
                 _min_sol_output: min_sol_output_with_slippage,
             },
         ));
+
+        instructions.push(close_account(
+            &spl_token::ID,
+            &ata,
+            &self.payer.pubkey(),
+            &self.payer.pubkey(),
+            &[&self.payer.pubkey()],
+        ).unwrap());
 
         instructions.push(
             system_instruction::transfer(
