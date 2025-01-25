@@ -254,20 +254,34 @@ impl PumpFun {
     ) -> Result<String, ClientError> {
         let start_time = Instant::now();
 
+        println!("111111111111111111")
+
         let jito_client = self.jito_client.as_ref()
             .ok_or_else(|| ClientError::Other("Jito client not found".to_string()))?;
 
+        println!("222222222222222222");
+
         let global_account = self.get_global_account()?;
+
+        println!("333333333333333333");
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
+
+        println!("444444444444444444");
         let buy_amount = bonding_curve_account
             .get_buy_price(amount_sol)
             .map_err(ClientError::BondingCurveError)?;
+
+        println!("555555555555555555");
         let buy_amount_with_slippage =
             utils::calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
+
+        println!("666666666666666666");
 
         let mut instructions = vec![];
 
         let tip_account = jito_client.get_tip_account().await?;
+
+        println!("777777777777777777");
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         if self.rpc.get_account(&ata).is_err() {
             instructions.push(create_associated_token_account(
@@ -278,6 +292,8 @@ impl PumpFun {
             ));
         }
 
+        println!("888888888888888888");
+
         instructions.push(instruction::buy(
             &self.payer.clone(),
             mint,
@@ -287,6 +303,8 @@ impl PumpFun {
                 _max_sol_cost: buy_amount_with_slippage,
             },
         ));
+
+        println!("999999999999999999");
         
         instructions.push(
             system_instruction::transfer(
@@ -296,6 +314,8 @@ impl PumpFun {
             ),
         );
 
+        println!("101010101010101010");
+
         let recent_blockhash = self.rpc.get_latest_blockhash()?;
         let transaction = Transaction::new_signed_with_payer(
             &instructions,
@@ -303,6 +323,8 @@ impl PumpFun {
             &[&self.payer.clone()],
             recent_blockhash,
         );
+
+        println!("110000000000000000");
 
         let signature = jito_client.send_transaction(&transaction).await?;
         println!("Total Jito buy operation time: {:?}ms", start_time.elapsed().as_millis());
