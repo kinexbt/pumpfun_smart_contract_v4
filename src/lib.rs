@@ -40,7 +40,7 @@ use borsh::BorshDeserialize;
 const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
 const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 10_000_000;
 const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 500_000;
-const JITO_TIP_AMOUNT: u64 = 1_000; // 0.000001 SOL
+const JITO_TIP_AMOUNT: u64 = 1255211; 
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
