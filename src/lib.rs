@@ -23,7 +23,7 @@ use spl_associated_token_account::{
     instruction::create_associated_token_account,
 };
 
-use common::logs_subscribe;
+use common::{logs_events::PumpfunEvent, logs_subscribe};
 use common::logs_subscribe::SubscriptionHandle;
 use common::logs_events::DexEvent;
 use spl_token::instruction::close_account;
@@ -590,7 +590,7 @@ impl PumpFun {
         bot_wallet: Option<Pubkey>,
     ) -> Result<SubscriptionHandle, Box<dyn std::error::Error>>
     where
-        F: Fn(DexEvent) + Send + Sync + 'static,
+        F: Fn(PumpfunEvent) + Send + Sync + 'static,
     {
         logs_subscribe::tokens_subscription(ws_url, commitment, callback, bot_wallet).await
     }

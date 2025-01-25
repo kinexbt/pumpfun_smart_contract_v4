@@ -12,6 +12,8 @@ use crate::{constants, common::{
     logs_data::DexInstruction, logs_events::DexEvent, logs_filters::LogFilter
 }};
 
+use super::logs_events::PumpfunEvent;
+
 /// Subscription handle containing task and unsubscribe logic
 pub struct SubscriptionHandle {
     pub task: JoinHandle<()>,
@@ -37,7 +39,7 @@ pub async fn tokens_subscription<F>(
     bot_wallet: Option<Pubkey>,
 ) -> Result<SubscriptionHandle, Box<dyn std::error::Error>>
 where
-    F: Fn(DexEvent) + Send + Sync + 'static,
+    F: Fn(PumpfunEvent) + Send + Sync + 'static,
 {
     let program_address = constants::accounts::PUMPFUN.to_string();
     let logs_filter = RpcTransactionLogsFilter::Mentions(vec![program_address]);
@@ -70,13 +72,13 @@ where
                     for instruction in instructions {
                         match instruction {
                             DexInstruction::CreateToken(token_info) => {
-                                callback(DexEvent::NewToken(token_info));
+                                callback(PumpfunEvent::NewToken(token_info));
                             }
                             DexInstruction::UserTrade(trade_info) => {
-                                callback(DexEvent::NewUserTrade(trade_info));
+                                callback(PumpfunEvent::NewUserTrade(trade_info));
                             }
                             DexInstruction::BotTrade(trade_info) => {
-                                callback(DexEvent::NewBotTrade(trade_info));
+                                callback(PumpfunEvent::NewBotTrade(trade_info));
                             }
                             _ => {}
                         }
