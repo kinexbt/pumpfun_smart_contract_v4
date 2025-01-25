@@ -40,7 +40,7 @@ use borsh::BorshDeserialize;
 const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
 const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 10_000_000;
 const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 500_000;
-const JITO_TIP_AMOUNT: u64 = 1255211; 
+const JITO_TIP_AMOUNT: u64 = 4123210; 
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -252,6 +252,7 @@ impl PumpFun {
         buy_token_amount: u64,
         max_sol_cost: u64,
         slippage_basis_points: Option<u64>,
+        jito_fee: Option<u64>,
     ) -> Result<String, ClientError> {
         let start_time = Instant::now();
 
@@ -283,12 +284,13 @@ impl PumpFun {
                 _max_sol_cost: buy_amount_with_slippage,
             },
         ));
-        
+
+        let jito_fee = jito_fee.unwrap_or(JITO_TIP_AMOUNT);
         instructions.push(
             system_instruction::transfer(
                 &self.payer.pubkey(),
                 &tip_account,
-                JITO_TIP_AMOUNT,
+                jito_fee,
             ),
         );
 
@@ -471,7 +473,7 @@ impl PumpFun {
             system_instruction::transfer(
                 &self.payer.pubkey(),
                 &tip_account,
-                JITO_TIP_AMOUNT/10,
+                JITO_TIP_AMOUNT/20,
             ),
         );
 
