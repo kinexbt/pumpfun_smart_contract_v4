@@ -596,9 +596,12 @@ impl PumpFun {
         &self,
         mint: &Pubkey,
     ) -> Result<accounts::BondingCurveAccount, ClientError> {
+        println!("aaaaaa");
         let bonding_curve_pda = Self::get_bonding_curve_pda(mint)
             .ok_or(ClientError::BondingCurveNotFound)?;
+        println!("bbbbbb");
         let account = self.rpc.get_account(&bonding_curve_pda)?;
+        println!("cccccc");
         accounts::BondingCurveAccount::try_from_slice(&account.data)
             .map_err(ClientError::BorshError)
     }
