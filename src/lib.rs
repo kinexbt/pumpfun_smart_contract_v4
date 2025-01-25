@@ -254,7 +254,7 @@ impl PumpFun {
     ) -> Result<String, ClientError> {
         let start_time = Instant::now();
 
-        println!("111111111111111111")
+        println!("111111111111111111");
 
         let jito_client = self.jito_client.as_ref()
             .ok_or_else(|| ClientError::Other("Jito client not found".to_string()))?;
