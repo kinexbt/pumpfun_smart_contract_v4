@@ -1,8 +1,7 @@
-use anyhow::anyhow;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::error::AppError;
+use crate::error::{ClientError, ClientResult};
 
 #[derive(Debug)]
 pub enum DexInstruction {
@@ -61,29 +60,29 @@ pub struct SwapBaseInLog {
 }
 
 pub trait EventTrait: Sized + std::fmt::Debug {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError>;
+    fn from_bytes(bytes: &[u8]) -> ClientResult<Self>;
 }
 
 impl EventTrait for CreateTokenInfo {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
-        CreateTokenInfo::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    fn from_bytes(bytes: &[u8]) -> ClientResult<Self> {
+        CreateTokenInfo::try_from_slice(bytes).map_err(|e| ClientError::Other(e.to_string()))
     }
 }
 
 impl EventTrait for TradeInfo {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
-        TradeInfo::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    fn from_bytes(bytes: &[u8]) -> ClientResult<Self> {
+        TradeInfo::try_from_slice(bytes).map_err(|e| ClientError::Other(e.to_string()))
     }
 }
 
 impl EventTrait for CompleteInfo {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
-        CompleteInfo::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    fn from_bytes(bytes: &[u8]) -> ClientResult<Self> {
+        CompleteInfo::try_from_slice(bytes).map_err(|e| ClientError::Other(e.to_string()))
     }
 }
 
 impl EventTrait for SwapBaseInLog {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, AppError> {
-        SwapBaseInLog::try_from_slice(bytes).map_err(|e| AppError::from(anyhow!(e.to_string())))
+    fn from_bytes(bytes: &[u8]) -> ClientResult<Self> {
+        SwapBaseInLog::try_from_slice(bytes).map_err(|e| ClientError::Other(e.to_string()))
     }
 }

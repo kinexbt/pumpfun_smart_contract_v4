@@ -14,11 +14,10 @@ use solana_sdk::{pubkey, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedTransactionWithStatusMeta, UiTransactionEncoding,
 };
-use anyhow::anyhow;
 
 use crate::common::logs_events::{PumpfunEvent, RaydiumEvent};
 use crate::common::logs_data::SwapBaseInLog;
-use crate::error::AppError;
+use crate::error::{ClientError, ClientResult};
 
 // 类型别名定义
 type TransactionsFilterMap = HashMap<String, SubscribeRequestFilterTransactions>;
@@ -92,25 +91,27 @@ impl YellowstoneGrpc {
     pub async fn connect(
         &self,
         transactions: TransactionsFilterMap,
-    ) -> Result<
+    ) -> ClientResult<
         GeyserGrpcClientResult<(
             impl Sink<SubscribeRequest, Error = mpsc::SendError>,
             impl Stream<Item = Result<SubscribeUpdate, Status>>,
-        )>,
-        AppError,
+        )>
     > {
         if CryptoProvider::get_default().is_none() {
             default_provider()
                 .install_default()
-                .map_err(|e| anyhow::anyhow!("Failed to install crypto provider: {:?}", e))?;
+                .map_err(|e| ClientError::Other(format!("Failed to install crypto provider: {:?}", e)))?;
         }
 
-        let mut client = GeyserGrpcClient::build_from_shared(self.endpoint.clone())?
-            .tls_config(ClientTlsConfig::new().with_native_roots())?
-            .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(60))
+        let mut client = GeyserGrpcClient::build_from_shared(self.endpoint.clone())
+            .map_err(|e| ClientError::Other(format!("Failed to build client: {:?}", e)))?
+            .tls_config(ClientTlsConfig::new().with_native_roots())
+            .map_err(|e| ClientError::Other(format!("Failed to build client: {:?}", e)))?
+            .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT))
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT))
             .connect()
-            .await?;
+            .await
+            .map_err(|e| ClientError::Other(format!("Failed to connect: {:?}", e)))?;
 
         let subscribe_request = SubscribeRequest {
             transactions,
@@ -121,9 +122,10 @@ impl YellowstoneGrpc {
         Ok(client.subscribe_with_request(Some(subscribe_request)).await)
     }
 
-    pub async fn subscribe_accounts(&self, accounts: Vec<String>) -> Result<(), AppError> {
+    pub async fn subscribe_accounts(&self, accounts: Vec<String>) -> ClientResult<()> {
         let transactions = self.get_subscribe_request_filter(accounts, vec![], vec![]);
-        let (mut subscribe_tx, mut stream) = self.connect(transactions).await??;
+        let (mut subscribe_tx, mut stream) = self.connect(transactions).await?
+        .map_err(|e| ClientError::Other(format!("Failed to subscribe: {:?}", e)))?;
         let (mut tx, mut rx) = mpsc::channel::<TransactionPretty>(CHANNEL_SIZE);
 
         tokio::spawn(async move {
@@ -151,13 +153,14 @@ impl YellowstoneGrpc {
         Ok(())
     }
 
-    pub async fn subscribe_pumpfun<F>(&self, callback: F, bot_wallet: Option<Pubkey>) -> Result<(), AppError> 
+    pub async fn subscribe_pumpfun<F>(&self, callback: F, bot_wallet: Option<Pubkey>) -> ClientResult<()> 
     where
         F: Fn(PumpfunEvent) + Send + Sync + 'static,
     {
         let addrs = vec![PUMP_PROGRAM_ID.to_string()];
         let transactions = self.get_subscribe_request_filter(addrs, vec![], vec![]);
-        let (mut subscribe_tx, mut stream) = self.connect(transactions).await??;
+        let (mut subscribe_tx, mut stream) = self.connect(transactions).await?
+        .map_err(|e| ClientError::Other(format!("Failed to subscribe: {:?}", e)))?;
         let (mut tx, mut rx) = mpsc::channel::<TransactionPretty>(CHANNEL_SIZE);
 
         let callback = Box::new(callback);
@@ -213,11 +216,11 @@ impl YellowstoneGrpc {
         msg: SubscribeUpdate,
         tx: &mut mpsc::Sender<TransactionPretty>,
         subscribe_tx: &mut (impl Sink<SubscribeRequest, Error = mpsc::SendError> + Unpin),
-    ) -> Result<(), AppError> {
+    ) -> ClientResult<()> {
         match msg.update_oneof {
             Some(UpdateOneof::Transaction(sut)) => {
                 let transaction_pretty = TransactionPretty::from(sut);
-                tx.try_send(transaction_pretty).map_err(|e| AppError::from(anyhow!("Send error: {:?}", e)))?;
+                tx.try_send(transaction_pretty).map_err(|e| ClientError::Other(format!("Send error: {:?}", e)))?;
             }
             Some(UpdateOneof::Ping(_)) => {
                 subscribe_tx
@@ -226,7 +229,7 @@ impl YellowstoneGrpc {
                         ..Default::default()
                     })
                     .await
-                    .map_err(|e| AppError::from(anyhow!("Ping error: {:?}", e)))?;
+                    .map_err(|e| ClientError::Other(format!("Ping error: {:?}", e)))?;
                 info!("service is ping: {}", Local::now());
             }
             Some(UpdateOneof::Pong(_)) => {
@@ -237,13 +240,13 @@ impl YellowstoneGrpc {
         Ok(())
     }
 
-    async fn process_transaction<F>(transaction_pretty: TransactionPretty, callback: &F, bot_wallet: Option<Pubkey>) -> Result<(), AppError> 
+    async fn process_transaction<F>(transaction_pretty: TransactionPretty, callback: &F, bot_wallet: Option<Pubkey>) -> ClientResult<()> 
     where
         F: Fn(PumpfunEvent) + Send + Sync,
     {
         let trade_raw = transaction_pretty.tx;
         let meta = trade_raw.meta.as_ref()
-            .ok_or_else(|| AppError::from(anyhow!("Missing transaction metadata")))?;
+            .ok_or_else(|| ClientError::Other("Missing transaction metadata".to_string()))?;
             
         if meta.err.is_some() {
             return Ok(());
@@ -283,25 +286,25 @@ impl YellowstoneGrpc {
         Ok(())
     }
 
-    pub fn get_swap_type(trade_raw: &EncodedTransactionWithStatusMeta) -> Result<SwapType, AppError> {
+    pub fn get_swap_type(trade_raw: &EncodedTransactionWithStatusMeta) -> ClientResult<SwapType> {
         let transaction = trade_raw.transaction.decode()
-            .ok_or_else(|| AppError::from(anyhow!("Failed to decode transaction")))?;
+            .ok_or_else(|| ClientError::Other("Failed to decode transaction".to_string()))?;
         
         let account_keys = transaction.message.static_account_keys();
         let program_index = account_keys
             .iter()
             .position(|item| item == &AMM_V4 || item == &PUMP_PROGRAM_ID)
-            .ok_or_else(|| AppError::from(anyhow!("swap type program_id not found")))?;
+            .ok_or_else(|| ClientError::Other("swap type program_id not found".to_string()))?;
 
         match account_keys[program_index] {
             AMM_V4 => Ok(SwapType::Raydium),
             PUMP_PROGRAM_ID => Ok(SwapType::Pump),
-            _ => Err(AppError::from(anyhow!("Invalid program_id")))
+            _ => Err(ClientError::Other("Invalid program_id".to_string()))
         }
     }
 }
 
-async fn test_subscribe_pumpfun() -> Result<(), AppError> {
+async fn test_subscribe_pumpfun() -> ClientResult<()> {
     // 创建YellowstoneGrpc实例
     let endpoint = "https://grpc.mainnet.solana.com".to_string();
     let client = YellowstoneGrpc::new(endpoint);
