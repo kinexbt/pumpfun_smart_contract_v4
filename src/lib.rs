@@ -279,7 +279,7 @@ impl PumpFun {
         }
 
         instructions.push(instruction::buy(
-            self.payer.as_ref(),
+            &self.payer.clone(),
             mint,
             &global_account.fee_recipient,
             instruction::Buy {
