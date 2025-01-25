@@ -84,7 +84,7 @@ impl PumpFun {
     ) -> Self {
         let rpc = RpcClient::new_with_commitment(
             rpc_url,
-            commitment.unwrap_or(CommitmentConfig::confirmed())
+            commitment.unwrap_or(CommitmentConfig::processed())
         );   
 
         let jito_client = jito_url.map(|url| JitoClient::new(&url, None));
