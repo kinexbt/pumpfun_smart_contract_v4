@@ -131,10 +131,6 @@ pub fn buy(
     args: Buy,
 ) -> Instruction {
     let bonding_curve: Pubkey = PumpFun::get_bonding_curve_pda(mint).unwrap();
-
-    println!("user_ata: {:?}", get_associated_token_address(&payer.pubkey(), mint));
-    println!("bonding_curve_ata: {:?}", get_associated_token_address(&bonding_curve, mint));
-
     Instruction::new_with_bytes(
         constants::accounts::PUMPFUN,
         &args.data(),
