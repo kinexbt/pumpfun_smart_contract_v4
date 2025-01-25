@@ -23,7 +23,7 @@ use spl_associated_token_account::{
     instruction::create_associated_token_account,
 };
 
-use common::{logs_events::PumpfunEvent, logs_subscribe};
+use common::{logs_data::TradeInfo, logs_events::PumpfunEvent, logs_subscribe};
 use common::logs_subscribe::SubscriptionHandle;
 use common::logs_events::DexEvent;
 use spl_token::instruction::close_account;
@@ -249,7 +249,8 @@ impl PumpFun {
     pub async fn buy_with_jito(
         &self,
         mint: &Pubkey,
-        amount_sol: u64,
+        buy_token_amount: u64,
+        max_sol_cost: u64,
         slippage_basis_points: Option<u64>,
     ) -> Result<String, ClientError> {
         let start_time = Instant::now();
@@ -264,16 +265,16 @@ impl PumpFun {
         let global_account = self.get_global_account()?;
 
         println!("333333333333333333");
-        let bonding_curve_account = self.get_bonding_curve_account(mint)?;
+        // let bonding_curve_account = self.get_bonding_curve_account(mint)?;
 
         println!("444444444444444444");
-        let buy_amount = bonding_curve_account
-            .get_buy_price(amount_sol)
-            .map_err(ClientError::BondingCurveError)?;
+        // let buy_amount = bonding_curve_account
+        //     .get_buy_price(max_sol_cost)
+        //     .map_err(ClientError::BondingCurveError)?;
 
         println!("555555555555555555");
         let buy_amount_with_slippage =
-            utils::calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
+            utils::calculate_with_slippage_buy(max_sol_cost, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
         println!("666666666666666666");
 
@@ -299,7 +300,7 @@ impl PumpFun {
             mint,
             &global_account.fee_recipient,
             instruction::Buy {
-                _amount: buy_amount,
+                _amount: buy_token_amount,
                 _max_sol_cost: buy_amount_with_slippage,
             },
         ));
@@ -633,6 +634,32 @@ impl PumpFun {
         let v_tokens = virtual_token_reserves as f64 / 100_000.0;
         let token_price = v_sol / v_tokens;
         token_price
+    }
+
+    pub fn get_buy_price(&self, amount: u64, trade_info: &TradeInfo) -> Result<u64, &'static str> {
+        if amount == 0 {
+            return Ok(0);
+        }
+
+        // Calculate the product of virtual reserves using u128 to avoid overflow
+        let n: u128 = (trade_info.virtual_sol_reserves as u128) * (trade_info.virtual_token_reserves as u128);
+
+        // Calculate the new virtual sol reserves after the purchase
+        let i: u128 = (trade_info.virtual_sol_reserves as u128) + (amount as u128);
+
+        // Calculate the new virtual token reserves after the purchase
+        let r: u128 = n / i + 1;
+
+        // Calculate the amount of tokens to be purchased
+        let s: u128 = (trade_info.virtual_token_reserves as u128) - r;
+
+        // Convert back to u64 and return the minimum of calculated tokens and real reserves
+        let s_u64 = s as u64;
+        Ok(if s_u64 < trade_info.real_token_reserves {
+            s_u64
+        } else {
+            trade_info.real_token_reserves
+        })
     }
 
     pub async fn get_token_price_in_usdc(&self, token_amount: f64) -> Result<f64, ClientError>  {
