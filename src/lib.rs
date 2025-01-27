@@ -38,8 +38,8 @@ use borsh::BorshDeserialize;
 
 // Constants
 const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
-const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 10_000_000;
-const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 500_000;
+const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 78000;
+const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 3_500_000;
 const JITO_TIP_AMOUNT: u64 = 4123210; 
 
 /// Priority fee configuration
@@ -473,7 +473,7 @@ impl PumpFun {
             system_instruction::transfer(
                 &self.payer.pubkey(),
                 &tip_account,
-                JITO_TIP_AMOUNT/20,
+                JITO_TIP_AMOUNT/15,
             ),
         );
 
