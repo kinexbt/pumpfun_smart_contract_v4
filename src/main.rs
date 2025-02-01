@@ -1,5 +1,5 @@
 use mai3_pumpfun_sdk::common::{
-    logs_events::DexEvent,
+    logs_events::PumpfunEvent,
     logs_subscribe::{tokens_subscription, stop_subscription}
 };
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -14,18 +14,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let commitment = CommitmentConfig::confirmed();
     
     // Define callback function
-    let callback = |event: DexEvent| {
+    let callback = |event: PumpfunEvent| {
         match event {
-            DexEvent::NewToken(token_info) => {
+            PumpfunEvent::NewToken(token_info) => {
                 println!("Received new token event: {:?}", token_info);
             },
-            DexEvent::NewUserTrade(trade_info) => {
+            PumpfunEvent::NewUserTrade(trade_info) => {
                 println!("Received new trade event: {:?}", trade_info);
             },
-            DexEvent::NewBotTrade(trade_info) => {
+            PumpfunEvent::NewBotTrade(trade_info) => {
                 println!("Received new bot trade event: {:?}", trade_info);
             },
-            DexEvent::Error(err) => {
+            PumpfunEvent::Error(err) => {
                 println!("Received error: {}", err);
             }
         }

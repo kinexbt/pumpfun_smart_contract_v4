@@ -658,6 +658,26 @@ impl PumpFun {
         let token_price_in_usdc = sol_price_in_usdc * token_amount;
         Ok(token_price_in_usdc)
     }
+
+    pub async fn get_sol_price_in_usdc(&self) -> Result<f64, ClientError>  {        
+        let url = "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112";
+        let response: serde_json::Value = reqwest::get(url)
+            .await
+            .map_err(|_| ClientError::Anyhow("Failed to install crypto provider"))?
+            .json()
+            .await
+            .map_err(|_| ClientError::Anyhow("Failed to install crypto provider"))?;
+    
+        let sol_price_str = response["data"]["So11111111111111111111111111111111111111112"]["price"]
+            .as_str()
+            .ok_or(ClientError::Anyhow("Failed to find SOL price as a string"))?;
+
+        let sol_price_in_usdc: f64 = sol_price_str
+            .parse()
+            .map_err(|_| ClientError::Anyhow("Failed to parse SOL price as a string"))?;
+
+        Ok(sol_price_in_usdc)
+    }
 }
 
 #[cfg(test)]

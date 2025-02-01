@@ -80,6 +80,8 @@ pub enum ClientError {
 
     Other(String),
 
+    Anyhow(&'static str),
+
     InvalidData(String),
 
     PumpFunBuy(String),
@@ -109,6 +111,7 @@ impl std::fmt::Display for ClientError {
             Self::ExternalService(msg) => write!(f, "External service error: {}", msg),
             Self::RateLimitExceeded => write!(f, "Rate limit exceeded"),
             Self::OrderLimitExceeded => write!(f, "Order limit exceeded"),
+            Self::Anyhow(msg) => write!(f, "Anyhow error: {}", msg),
             Self::Solana(msg, details) => write!(f, "Solana error: {}, details: {}", msg, details),
             Self::Parse(msg, details) => write!(f, "Parse error: {}, details: {}", msg, details),
             Self::Jito(msg, details) => write!(f, "Jito error: {}, details: {}", msg, details),
