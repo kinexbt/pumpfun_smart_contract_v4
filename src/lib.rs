@@ -40,7 +40,7 @@ use borsh::BorshDeserialize;
 const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
 const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 78000;
 const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 3_500_000;
-const JITO_TIP_AMOUNT: u64 = 4123210; 
+const JITO_TIP_AMOUNT: u64 = 5644005; 
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -399,6 +399,7 @@ impl PumpFun {
         mint: &Pubkey,
         percent: u64,
         slippage_basis_points: Option<u64>,
+        jito_fee: Option<u64>,
     ) -> Result<String, ClientError> {
         if percent > 100 {
             return Err(ClientError::Other("Percentage must be between 0 and 100".to_string()));
@@ -414,7 +415,7 @@ impl PumpFun {
         }
 
         let amount = balance_u64 * percent / 100;
-        self.sell_with_jito(mint, Some(amount), slippage_basis_points).await
+        self.sell_with_jito(mint, Some(amount), slippage_basis_points, jito_fee).await
     }
 
     /// Sell tokens using Jito
@@ -423,6 +424,7 @@ impl PumpFun {
         mint: &Pubkey,
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
+        jito_fee: Option<u64>,
     ) -> Result<String, ClientError> {
         let start_time = Instant::now();
 
@@ -473,7 +475,7 @@ impl PumpFun {
             system_instruction::transfer(
                 &self.payer.pubkey(),
                 &tip_account,
-                JITO_TIP_AMOUNT/15,
+                jito_fee.unwrap_or(JITO_TIP_AMOUNT/15),
             ),
         );
 
