@@ -475,7 +475,7 @@ impl PumpFun {
             system_instruction::transfer(
                 &self.payer.pubkey(),
                 &tip_account,
-                jito_fee.unwrap_or(JITO_TIP_AMOUNT/15),
+                jito_fee.unwrap_or(JITO_TIP_AMOUNT/10),
             ),
         );
 
