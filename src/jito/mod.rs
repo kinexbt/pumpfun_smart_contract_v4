@@ -110,6 +110,7 @@ impl JitoClient {
 
     async fn send_request(&self, endpoint: &str, method: &str, params: Option<Value>) -> Result<Value> {
         let url = format!("{}{}", self.base_url, endpoint);
+        println!("send_request url: {:?}", url);
         
         let data = json!({
             "jsonrpc": "2.0",
