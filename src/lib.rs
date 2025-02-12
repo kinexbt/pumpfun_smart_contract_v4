@@ -7,6 +7,7 @@ pub mod jito;
 pub mod grpc;
 pub mod common;
 
+use anyhow::anyhow;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -25,7 +26,6 @@ use spl_associated_token_account::{
 
 use common::{logs_data::TradeInfo, logs_events::PumpfunEvent, logs_subscribe};
 use common::logs_subscribe::SubscriptionHandle;
-use common::logs_events::DexEvent;
 use spl_token::instruction::close_account;
 
 use std::sync::Arc;
@@ -264,7 +264,7 @@ impl PumpFun {
             utils::calculate_with_slippage_buy(max_sol_cost, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
         let mut instructions = vec![];
-        let tip_account = jito_client.get_tip_account().await?;
+        let tip_account = jito_client.get_tip_account().await.map_err(|e| anyhow!(e)).unwrap();
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         if self.rpc.get_account(&ata).is_err() {
             instructions.push(create_associated_token_account(
@@ -452,7 +452,7 @@ impl PumpFun {
         );
 
         let mut instructions = vec![];
-        let tip_account = jito_client.get_tip_account().await?;
+        let tip_account = jito_client.get_tip_account().await.map_err(|e| ClientError::Other(e.to_string()))?;
         instructions.push(instruction::sell(
             &self.payer.clone(),
             mint,
