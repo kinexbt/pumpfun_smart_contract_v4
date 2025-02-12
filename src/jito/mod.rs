@@ -103,6 +103,7 @@ impl JitoClient {
         };
 
         let result = self.send_request(&endpoint, "getTipAccounts", None).await?;
+        println!("get_tip_accounts result: {:?}", serde_json::to_string_pretty(&result).unwrap());
         let tip_accounts = TipAccountResult::from(result).map_err(|e| anyhow!(e))?;
         Ok(tip_accounts)
     }
