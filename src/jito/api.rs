@@ -3,6 +3,7 @@ use std::env;
 use anyhow::{Context, Result};
 use reqwest::Proxy;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::convert::TryFrom;
 
 use super::TipPercentileData;
@@ -45,17 +46,16 @@ pub async fn get_tip_accounts(block_engine_url: &str) -> Result<RpcResponse> {
     println!("result: {:?}", result);
     Ok(result)
 }
+
 /// tip accounts
 #[derive(Debug)]
 pub struct TipAccountResult {
     pub accounts: Vec<String>,
 }
 
-impl TryFrom<RpcResponse> for TipAccountResult {
-    type Error = anyhow::Error;
-    fn try_from(value: RpcResponse) -> Result<Self, Self::Error> {
+impl TipAccountResult {
+    pub fn from(value: Value) -> Result<Self> {
         let accounts = value
-            .result
             .as_array()
             .context("expected 'result' to be an array")?
             .iter()

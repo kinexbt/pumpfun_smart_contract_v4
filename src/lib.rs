@@ -32,7 +32,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::jito::JitoClient;
-use crate::error::ClientError;
 
 use borsh::BorshDeserialize;
 
@@ -102,10 +101,10 @@ impl PumpFun {
         mint: &Keypair,
         metadata: utils::CreateTokenMetadata,
         priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, ClientError> {
+    ) -> Result<Signature, anyhow::Error> {
         let ipfs = utils::create_token_metadata(metadata)
             .await
-            .map_err(ClientError::UploadMetadataError)?;
+            .map_err(|_| anyhow!("Failed to upload metadata"))?;
 
         let mut instructions = self.create_priority_fee_instructions(priority_fee);
 
@@ -140,10 +139,10 @@ impl PumpFun {
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
         priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, ClientError> {
+    ) -> Result<Signature, anyhow::Error> {
         let ipfs = utils::create_token_metadata(metadata)
             .await
-            .map_err(ClientError::UploadMetadataError)?;
+            .map_err(|e| anyhow!(e.to_string()))?;
 
         let global_account = self.get_global_account()?;
         let buy_amount = global_account.get_initial_buy_price(amount_sol);
@@ -202,12 +201,12 @@ impl PumpFun {
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
         priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, ClientError> {
+    ) -> Result<Signature, anyhow::Error> {
         let global_account = self.get_global_account()?;
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
         let buy_amount = bonding_curve_account
             .get_buy_price(amount_sol)
-            .map_err(ClientError::BondingCurveError)?;
+            .map_err(|e| anyhow!(e))?;
         let buy_amount_with_slippage =
             utils::calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
@@ -253,11 +252,11 @@ impl PumpFun {
         max_sol_cost: u64,
         slippage_basis_points: Option<u64>,
         jito_fee: Option<u64>,
-    ) -> Result<String, ClientError> {
+    ) -> Result<String, anyhow::Error> {
         let start_time = Instant::now();
 
         let jito_client = self.jito_client.as_ref()
-            .ok_or_else(|| ClientError::Other("Jito client not found".to_string()))?;
+            .ok_or_else(|| anyhow!("Jito client not found"))?;
 
         let global_account = self.get_global_account()?;
         let buy_amount_with_slippage =
@@ -315,22 +314,22 @@ impl PumpFun {
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
         priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, ClientError> {
+    ) -> Result<Signature, anyhow::Error> {
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         let balance = self.rpc.get_token_account_balance(&ata)?;
         let balance_u64 = balance.amount.parse::<u64>()
-            .map_err(|_| ClientError::Other("Failed to parse token balance".to_string()))?;
+            .map_err(|_| anyhow!("Failed to parse token balance"))?;
         let amount = amount_token.unwrap_or(balance_u64);
         
         if amount == 0 {
-            return Err(ClientError::Other("Balance is 0".to_string()));
+            return Err(anyhow!("Balance is 0"));
         }
 
         let global_account = self.get_global_account()?;
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
         let min_sol_output = bonding_curve_account
             .get_sell_price(amount, global_account.fee_basis_points)
-            .map_err(ClientError::BondingCurveError)?;
+            .map_err(|e| anyhow!(e))?;
         let min_sol_output_with_slippage = utils::calculate_with_slippage_sell(
             min_sol_output,
             slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
@@ -376,18 +375,18 @@ impl PumpFun {
         percent: u64,
         slippage_basis_points: Option<u64>,
         priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, ClientError> {
+    ) -> Result<Signature, anyhow::Error> {
         if percent > 100 {
-            return Err(ClientError::Other("Percentage must be between 0 and 100".to_string()));
+            return Err(anyhow!("Percentage must be between 0 and 100"));
         }
 
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         let balance = self.rpc.get_token_account_balance(&ata)?;
         let balance_u64 = balance.amount.parse::<u64>()
-            .map_err(|_| ClientError::Other("Failed to parse token balance".to_string()))?;
+            .map_err(|_| anyhow!("Failed to parse token balance"))?;
         
         if balance_u64 == 0 {
-            return Err(ClientError::Other("Balance is 0".to_string()));
+            return Err(anyhow!("Balance is 0"));
         }
 
         let amount = balance_u64 * percent / 100;
@@ -400,18 +399,18 @@ impl PumpFun {
         percent: u64,
         slippage_basis_points: Option<u64>,
         jito_fee: Option<u64>,
-    ) -> Result<String, ClientError> {
+    ) -> Result<String, anyhow::Error> {
         if percent > 100 {
-            return Err(ClientError::Other("Percentage must be between 0 and 100".to_string()));
+            return Err(anyhow!("Percentage must be between 0 and 100"));
         }
 
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         let balance = self.rpc.get_token_account_balance(&ata)?;
         let balance_u64 = balance.amount.parse::<u64>()
-            .map_err(|_| ClientError::Other("Failed to parse token balance".to_string()))?;
+            .map_err(|_| anyhow!("Failed to parse token balance"))?;
         
         if balance_u64 == 0 {
-            return Err(ClientError::Other("Balance is 0".to_string()));
+            return Err(anyhow!("Balance is 0"));
         }
 
         let amount = balance_u64 * percent / 100;
@@ -425,34 +424,34 @@ impl PumpFun {
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
         jito_fee: Option<u64>,
-    ) -> Result<String, ClientError> {
+    ) -> Result<String, anyhow::Error> {
         let start_time = Instant::now();
 
         let jito_client = self.jito_client.as_ref()
-            .ok_or_else(|| ClientError::Other("Jito client not found".to_string()))?;
+            .ok_or_else(|| anyhow!("Jito client not found"))?;
 
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         let balance = self.rpc.get_token_account_balance(&ata)?;
         let balance_u64 = balance.amount.parse::<u64>()
-            .map_err(|_| ClientError::Other("Failed to parse token balance".to_string()))?;
+            .map_err(|_| anyhow!("Failed to parse token balance"))?;
         let amount = amount_token.unwrap_or(balance_u64);
 
         if amount == 0 {
-            return Err(ClientError::Other("Amount cannot be zero".to_string()));
+            return Err(anyhow!("Amount cannot be zero"));
         }
 
         let global_account = self.get_global_account()?;
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
         let min_sol_output = bonding_curve_account
             .get_sell_price(amount, global_account.fee_basis_points)
-            .map_err(ClientError::BondingCurveError)?;
+            .map_err(|e| anyhow!(e))?;
         let min_sol_output_with_slippage = utils::calculate_with_slippage_sell(
             min_sol_output,
             slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
         );
 
         let mut instructions = vec![];
-        let tip_account = jito_client.get_tip_account().await.map_err(|e| ClientError::Other(e.to_string()))?;
+        let tip_account = jito_client.get_tip_account().await.map_err(|e| anyhow!(e))?;
         instructions.push(instruction::sell(
             &self.payer.clone(),
             mint,
@@ -512,7 +511,7 @@ impl PumpFun {
         self.payer.pubkey()
     }
 
-    pub fn get_token_balance(&self, account: &Pubkey, mint: &Pubkey) -> Result<u64, ClientError> {
+    pub fn get_token_balance(&self, account: &Pubkey, mint: &Pubkey) -> Result<u64, anyhow::Error> {
         let ata = get_associated_token_address(account, mint);
         if self.rpc.get_account(&ata).is_err() {
             return Ok(0);
@@ -520,18 +519,18 @@ impl PumpFun {
 
         let balance = self.rpc.get_token_account_balance(&ata)?;
         balance.amount.parse::<u64>()
-            .map_err(|_| ClientError::Other("Failed to parse token balance".to_string()))
+            .map_err(|_| anyhow!("Failed to parse token balance"))
     }
 
-    pub fn get_sol_balance(&self, account: &Pubkey) -> Result<u64, ClientError> {
-        self.rpc.get_balance(account).map_err(ClientError::SolanaClientError)
+    pub fn get_sol_balance(&self, account: &Pubkey) -> Result<u64, anyhow::Error> {
+        self.rpc.get_balance(account).map_err(|_| anyhow!("Failed to get SOL balance"))
     }
 
-    pub fn get_payer_token_balance(&self, mint: &Pubkey) -> Result<u64, ClientError> {
+    pub fn get_payer_token_balance(&self, mint: &Pubkey) -> Result<u64, anyhow::Error> {
         self.get_token_balance(&self.payer.pubkey(), mint)
     }
 
-    pub fn get_payer_sol_balance(&self) -> Result<u64, ClientError> {
+    pub fn get_payer_sol_balance(&self) -> Result<u64, anyhow::Error> {
         self.get_sol_balance(&self.payer.pubkey())
     }
 
@@ -563,22 +562,22 @@ impl PumpFun {
     }
 
     // Account related methods
-    pub fn get_global_account(&self) -> Result<accounts::GlobalAccount, ClientError> {
+    pub fn get_global_account(&self) -> Result<accounts::GlobalAccount, anyhow::Error> {
         let global = Self::get_global_pda();
         let account = self.rpc.get_account(&global)?;
         accounts::GlobalAccount::try_from_slice(&account.data)
-            .map_err(ClientError::BorshError)
+            .map_err(|e| anyhow!(e))
     }
 
     pub fn get_bonding_curve_account(
         &self,
         mint: &Pubkey,
-    ) -> Result<accounts::BondingCurveAccount, ClientError> {
+    ) -> Result<accounts::BondingCurveAccount, anyhow::Error> {
         let bonding_curve_pda = Self::get_bonding_curve_pda(mint)
-            .ok_or(ClientError::BondingCurveNotFound)?;
+            .ok_or(anyhow!("Bonding curve not found"))?;
         let account = self.rpc.get_account(&bonding_curve_pda)?;
         accounts::BondingCurveAccount::try_from_slice(&account.data)
-            .map_err(ClientError::BorshError)
+            .map_err(|e| anyhow!(e))
     }
 
     // Subscription related methods
@@ -636,7 +635,7 @@ impl PumpFun {
         })
     }
 
-    pub async fn get_token_price_in_usdc(&self, token_amount: f64) -> Result<f64, ClientError>  {
+    pub async fn get_token_price_in_usdc(&self, token_amount: f64) -> Result<f64, anyhow::Error>  {
         if token_amount == 0.0 {
             return Ok(0.0);
         }
@@ -644,39 +643,39 @@ impl PumpFun {
         let url = "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112";
         let response: serde_json::Value = reqwest::get(url)
             .await
-            .map_err(|e: reqwest::Error| ClientError::Other(Box::new(e).to_string()))?
+            .map_err(|e: reqwest::Error| anyhow!(e))?
             .json()
             .await
-            .map_err(|e: reqwest::Error| ClientError::Other(Box::new(e).to_string()))?;
+            .map_err(|e: reqwest::Error| anyhow!(e))?;
     
         let sol_price_str = response["data"]["So11111111111111111111111111111111111111112"]["price"]
             .as_str()
-            .ok_or(ClientError::Other("Failed to find SOL price as a string".into()))?;
+            .ok_or(anyhow!("Failed to find SOL price as a string"))?;
 
         let sol_price_in_usdc: f64 = sol_price_str
             .parse()
-            .map_err(|e: std::num::ParseFloatError| ClientError::Other(Box::new(e).to_string()))?;
+            .map_err(|e: std::num::ParseFloatError| anyhow!(e))?;
 
         let token_price_in_usdc = sol_price_in_usdc * token_amount;
         Ok(token_price_in_usdc)
     }
 
-    pub async fn get_sol_price_in_usdc(&self) -> Result<f64, ClientError>  {        
+    pub async fn get_sol_price_in_usdc(&self) -> Result<f64, anyhow::Error>  {        
         let url = "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112";
         let response: serde_json::Value = reqwest::get(url)
             .await
-            .map_err(|_| ClientError::Anyhow("Failed to install crypto provider"))?
+            .map_err(|_| anyhow!("Failed to install crypto provider"))?
             .json()
             .await
-            .map_err(|_| ClientError::Anyhow("Failed to install crypto provider"))?;
+            .map_err(|_| anyhow!("Failed to install crypto provider"))?;
     
         let sol_price_str = response["data"]["So11111111111111111111111111111111111111112"]["price"]
             .as_str()
-            .ok_or(ClientError::Anyhow("Failed to find SOL price as a string"))?;
+            .ok_or(anyhow!("Failed to find SOL price as a string"))?;
 
         let sol_price_in_usdc: f64 = sol_price_str
             .parse()
-            .map_err(|_| ClientError::Anyhow("Failed to parse SOL price as a string"))?;
+            .map_err(|_| anyhow!("Failed to parse SOL price as a string"))?;
 
         Ok(sol_price_in_usdc)
     }

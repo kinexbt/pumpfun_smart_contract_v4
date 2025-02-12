@@ -1,7 +1,7 @@
 use std::{convert::TryInto, future::Future, str::FromStr, time::Duration, fmt};
 
 use anyhow::{anyhow, Result};
-use api::{get_tip_accounts, TipAccountResult};
+use api::TipAccountResult;
 use rand::{rng, seq::IteratorRandom};
 use reqwest::Client;
 use serde::Deserialize;
@@ -95,7 +95,19 @@ impl JitoClient {
         }
     }
 
-    async fn send_request(&self, endpoint: &str, method: &str, params: Option<Value>) -> ClientResult<Value> {
+    pub async fn get_tip_accounts(&self) -> Result<TipAccountResult> {
+        let endpoint = if let Some(uuid) = &self.uuid {
+            format!("/bundles?uuid={}", uuid)
+        } else {
+            "/bundles".to_string()
+        };
+
+        let result = self.send_request(&endpoint, "getTipAccounts", None).await?;
+        let tip_accounts = TipAccountResult::from(result).map_err(|e| anyhow!(e))?;
+        Ok(tip_accounts)
+    }
+
+    async fn send_request(&self, endpoint: &str, method: &str, params: Option<Value>) -> Result<Value> {
         let url = format!("{}{}", self.base_url, endpoint);
         
         let data = json!({
@@ -111,16 +123,16 @@ impl JitoClient {
             .json(&data)
             .send()
             .await
-            .map_err(|e| ClientError::Other(format!("Request failed: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Request failed: {}", e)))?;
 
         let body = response.json::<Value>().await
-            .map_err(|e| ClientError::Other(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to parse response: {}", e)))?;
 
         Ok(body)
     }
 
     pub async fn init_tip_accounts(&self) -> Result<()> {
-        let accounts: TipAccountResult = get_tip_accounts(&self.base_url).await?.try_into()?;
+        let accounts = self.get_tip_accounts().await?;
         let mut tip_accounts = self.tip_accounts.write().await;
 
         accounts
@@ -186,10 +198,10 @@ impl JitoClient {
     pub async fn send_transaction(
         &self,
         transaction: &Transaction,
-    ) -> ClientResult<String> {
+    ) -> Result<String, anyhow::Error> {
         let wire_transaction = bincode::serialize(transaction).map_err(|e| {
-            ClientError::Parse(
-                "Transaction serialization failed".to_string(),
+            anyhow!(
+                "Transaction serialization failed: {}",
                 e.to_string(),
             )
         })?;
@@ -208,13 +220,10 @@ impl JitoClient {
         response["result"]
             .as_str()
             .map(|s| s.to_string())
-            .ok_or_else(|| ClientError::Parse(
-                "Invalid response format".to_string(),
-                "Missing result field".to_string(),
-            ))
+            .ok_or_else(|| anyhow!("Invalid response format: missing result field"))
     }
 
-    pub async fn send_bundle(&self, params: Option<Value>, uuid: Option<String>) -> ClientResult<Value> {
+    pub async fn send_bundle(&self, params: Option<Value>, uuid: Option<String>) -> Result<Value> {
         let mut endpoint = "/bundles".to_string();
         
         if let Some(uuid) = uuid {
@@ -225,14 +234,14 @@ impl JitoClient {
         let transactions = match params {
             Some(Value::Array(transactions)) => {
                 if transactions.is_empty() {
-                    return Err(ClientError::Other("Bundle must contain at least one transaction".to_string()));
+                    return Err(anyhow!("Bundle must contain at least one transaction"));
                 }
                 if transactions.len() > 5 {
-                    return Err(ClientError::Other("Bundle can contain at most 5 transactions".to_string()));
+                    return Err(anyhow!("Bundle can contain at most 5 transactions"));
                 }
                 transactions
             },
-            _ => return Err(ClientError::Other("Invalid bundle format: expected an array of transactions".to_string())),
+            _ => return Err(anyhow!("Invalid bundle format: expected an array of transactions")),
         };
     
         // Wrap the transactions array in another array
@@ -241,6 +250,7 @@ impl JitoClient {
         // Send the wrapped transactions array
         self.send_request(&endpoint, "sendBundle", Some(params))
             .await
+            .map_err(|e| anyhow!(e))
     }
 
     pub async fn wait_for_bundle_confirmation<F, Fut>(
