@@ -262,7 +262,7 @@ impl PumpFun {
         let buy_amount_with_slippage =
             utils::calculate_with_slippage_buy(max_sol_cost, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
-        let mut instructions = vec![];
+        let mut instructions = self.create_priority_fee_instructions(None);
         let tip_account = jito_client.get_tip_account().await.map_err(|e| anyhow!(e)).unwrap();
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         if self.rpc.get_account(&ata).is_err() {
@@ -450,7 +450,7 @@ impl PumpFun {
             slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
         );
 
-        let mut instructions = vec![];
+        let mut instructions = self.create_priority_fee_instructions(None);
         let tip_account = jito_client.get_tip_account().await.map_err(|e| anyhow!(e))?;
         instructions.push(instruction::sell(
             &self.payer.clone(),

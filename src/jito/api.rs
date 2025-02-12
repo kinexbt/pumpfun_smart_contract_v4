@@ -24,8 +24,6 @@ pub struct RpcResponse {
 }
 
 pub async fn get_tip_accounts(block_engine_url: &str) -> Result<RpcResponse> {
-    println!("get_tip_accounts: {}", block_engine_url);
-
     let client_builder = reqwest::Client::builder();
     let client = client_builder.build()?;
     let request_body = RpcRequest {
@@ -43,7 +41,6 @@ pub async fn get_tip_accounts(block_engine_url: &str) -> Result<RpcResponse> {
         .json::<RpcResponse>()
         .await?;
 
-    println!("result: {:?}", result);
     Ok(result)
 }
 

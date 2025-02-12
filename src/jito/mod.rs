@@ -103,15 +103,12 @@ impl JitoClient {
         };
 
         let result = self.send_request(&endpoint, "getTipAccounts", None).await?;
-        println!("get_tip_accounts result: {:?}", serde_json::to_string_pretty(&result).unwrap());
         let tip_accounts = TipAccountResult::from(result).map_err(|e| anyhow!(e))?;
         Ok(tip_accounts)
     }
 
     async fn send_request(&self, endpoint: &str, method: &str, params: Option<Value>) -> Result<Value> {
-        let url = format!("{}{}", self.base_url, endpoint);
-        println!("send_request url: {:?}", url);
-        
+        let url = format!("{}{}", self.base_url, endpoint);        
         let data = json!({
             "jsonrpc": "2.0",
             "id": 1,
