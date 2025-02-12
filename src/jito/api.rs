@@ -55,7 +55,7 @@ pub struct TipAccountResult {
 
 impl TipAccountResult {
     pub fn from(value: Value) -> Result<Self> {
-        let accounts = value
+        let accounts = value["result"]
             .as_array()
             .context("expected 'result' to be an array")?
             .iter()
