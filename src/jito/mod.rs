@@ -97,9 +97,9 @@ impl JitoClient {
 
     pub async fn get_tip_accounts(&self) -> Result<TipAccountResult> {
         let endpoint = if let Some(uuid) = &self.uuid {
-            format!("/bundles?uuid={}", uuid)
+            format!("/api/v1/bundles?uuid={}", uuid)
         } else {
-            "/bundles".to_string()
+            "/api/v1/bundles".to_string()
         };
 
         let result = self.send_request(&endpoint, "getTipAccounts", None).await?;
@@ -226,7 +226,7 @@ impl JitoClient {
     }
 
     pub async fn send_bundle(&self, params: Option<Value>, uuid: Option<String>) -> Result<Value> {
-        let mut endpoint = "/bundles".to_string();
+        let mut endpoint = "/api/v1/bundles".to_string();
         
         if let Some(uuid) = uuid {
             endpoint = format!("{}?uuid={}", endpoint, uuid);
