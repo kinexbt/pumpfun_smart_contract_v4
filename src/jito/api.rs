@@ -23,11 +23,9 @@ pub struct RpcResponse {
 }
 
 pub async fn get_tip_accounts(block_engine_url: &str) -> Result<RpcResponse> {
-    let mut client_builder = reqwest::Client::builder();
-    if let Ok(http_proxy) = env::var("HTTP_PROXY") {
-        let proxy = Proxy::all(http_proxy)?;
-        client_builder = client_builder.proxy(proxy);
-    }
+    println!("get_tip_accounts: {}", block_engine_url);
+
+    let client_builder = reqwest::Client::builder();
     let client = client_builder.build()?;
     let request_body = RpcRequest {
         jsonrpc: "2.0".to_string(),
@@ -35,6 +33,7 @@ pub async fn get_tip_accounts(block_engine_url: &str) -> Result<RpcResponse> {
         method: "getTipAccounts".to_string(),
         params: vec![],
     };
+
     let result = client
         .post(format!("{}/api/v1/bundles", block_engine_url))
         .json(&request_body)
@@ -43,6 +42,7 @@ pub async fn get_tip_accounts(block_engine_url: &str) -> Result<RpcResponse> {
         .json::<RpcResponse>()
         .await?;
 
+    println!("result: {:?}", result);
     Ok(result)
 }
 /// tip accounts
