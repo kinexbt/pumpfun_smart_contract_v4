@@ -8,7 +8,7 @@ pub mod grpc;
 pub mod common;
 
 use anyhow::anyhow;
-use solana_client::rpc_client::RpcClient;
+use solana_client::{connection_cache::ConnectionCache, rpc_client::RpcClient, rpc_config::{RpcSendTransactionConfig, RpcSimulateTransactionConfig}, send_and_confirm_transactions_in_parallel::{send_and_confirm_transactions_in_parallel, SendAndConfirmConfig}, tpu_client::{TpuClient, TpuClientConfig}};
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
@@ -40,6 +40,7 @@ const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
 const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 78000;
 const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 3_500_000;
 const JITO_TIP_AMOUNT: u64 = 5644005; 
+const WS_URL: &str = "ws://127.0.0.1:8900";
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -314,7 +315,8 @@ impl PumpFun {
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
         priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, anyhow::Error> {
+    ) -> Result<(), anyhow::Error> {
+        // 获取代币账户余额
         let ata = get_associated_token_address(&self.payer.pubkey(), mint);
         let balance = self.rpc.get_token_account_balance(&ata)?;
         let balance_u64 = balance.amount.parse::<u64>()
@@ -325,6 +327,7 @@ impl PumpFun {
             return Err(anyhow!("Balance is 0"));
         }
 
+        // 计算最小SOL输出
         let global_account = self.get_global_account()?;
         let bonding_curve_account = self.get_bonding_curve_account(mint)?;
         let min_sol_output = bonding_curve_account
@@ -335,7 +338,11 @@ impl PumpFun {
             slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
         );
 
-        let mut instructions = self.create_priority_fee_instructions(priority_fee);
+        // 构建指令
+        let mut instructions = vec![
+            ComputeBudgetInstruction::set_compute_unit_limit(1_400_000),
+            ComputeBudgetInstruction::set_compute_unit_price(0),
+        ];
 
         instructions.push(instruction::sell(
             &self.payer.clone(),
@@ -355,7 +362,48 @@ impl PumpFun {
             &[&self.payer.pubkey()],
         ).unwrap());
 
-        let recent_blockhash = self.rpc.get_latest_blockhash()?;
+        // 获取最新区块哈希
+        let commitment_config = CommitmentConfig::confirmed();
+        let recent_blockhash = self.rpc.get_latest_blockhash_with_commitment(commitment_config)
+            .map_err(|_| anyhow!("Failed to get latest blockhash"))?
+            .0;
+
+        let simulate_tx = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&self.payer.pubkey()),
+            &[&self.payer.clone()],
+            recent_blockhash,
+        );
+
+        // 模拟交易
+        let config = RpcSimulateTransactionConfig {
+            sig_verify: true,
+            commitment: Some(commitment_config),
+            ..RpcSimulateTransactionConfig::default()
+        };
+        
+        let result = self.rpc.simulate_transaction_with_config(&simulate_tx, config)?
+            .value;
+
+        if result.logs.as_ref().map_or(true, |logs| logs.is_empty()) {
+            return Err(anyhow!("Simulation failed: {:?}", result.err));
+        }
+
+        // 更新计算单元和优先费用
+        let result_cu = result.units_consumed.ok_or_else(|| anyhow!("No compute units consumed"))?;
+        let fees = self.rpc.get_recent_prioritization_fees(&[])?;
+        let average_fees = fees.iter()
+            .map(|fee| fee.prioritization_fee)
+            .sum::<u64>() / fees.len() as u64;
+
+        let unit_price = match priority_fee {
+            None => average_fees,
+            Some(pf) => pf.price.unwrap_or(DEFAULT_COMPUTE_UNIT_PRICE)
+        };
+
+        instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
+        instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
+
         let transaction = Transaction::new_signed_with_payer(
             &instructions,
             Some(&self.payer.pubkey()),
@@ -363,9 +411,9 @@ impl PumpFun {
             recent_blockhash,
         );
 
-        let signature = self.rpc.send_and_confirm_transaction(&transaction)?;
-
-        Ok(signature)
+        // 发送交易
+        self.rpc.send_and_confirm_transaction(&transaction)?;
+        Ok(())
     }
 
     /// Sell tokens by percentage
@@ -375,7 +423,7 @@ impl PumpFun {
         percent: u64,
         slippage_basis_points: Option<u64>,
         priority_fee: Option<PriorityFee>,
-    ) -> Result<Signature, anyhow::Error> {
+    ) -> Result<(), anyhow::Error> {
         if percent > 100 {
             return Err(anyhow!("Percentage must be between 0 and 100"));
         }
