@@ -38,9 +38,9 @@ use borsh::BorshDeserialize;
 // Constants
 const DEFAULT_SLIPPAGE: u64 = 1000; // 10%
 const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 78000;
-const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 3_500_000;
+const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 500000;
 const JITO_TIP_AMOUNT: u64 = 5644005; 
-const WS_URL: &str = "ws://127.0.0.1:8900";
+// const WS_URL: &str = "ws://127.0.0.1:8900";
 
 /// Priority fee configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -400,6 +400,8 @@ impl PumpFun {
             None => average_fees,
             Some(pf) => pf.price.unwrap_or(DEFAULT_COMPUTE_UNIT_PRICE)
         };
+
+        let unit_price = if unit_price == 0 { DEFAULT_COMPUTE_UNIT_PRICE } else { unit_price };
 
         instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
         instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
