@@ -96,6 +96,10 @@ impl PumpFun {
         }
     }
 
+    pub fn get_rpc(&self) -> &RpcClient {
+        &self.rpc
+    }
+
     /// Create a new token
     pub async fn create(
         &self,
@@ -646,6 +650,29 @@ impl PumpFun {
 
     pub async fn stop_subscription(&self, subscription_handle: SubscriptionHandle) {
         subscription_handle.shutdown().await;
+    }
+
+    pub async fn transfer_sol(&self, recieve_wallet: &Pubkey, amount: u64) -> Result<(), anyhow::Error> {
+        let mut instructions = vec![];
+        let transfer_instruction = system_instruction::transfer(
+            &self.payer.pubkey(),  // 付款方地址
+            recieve_wallet,             // 收款方地址
+            amount,       // 转账金额
+        );
+        instructions.push(transfer_instruction);
+    
+        let recent_blockhash = self.rpc.get_latest_blockhash()?;
+    
+        let transaction = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&self.payer.pubkey()),  
+            &[&self.payer.clone()],             
+            recent_blockhash,
+        );  
+    
+        self.rpc.send_and_confirm_transaction(&transaction)?;
+    
+        Ok(())
     }
 
     pub fn get_buy_amount_with_slippage(&self, amount_sol: u64, slippage_basis_points: Option<u64>) -> u64 {
