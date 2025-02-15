@@ -15,29 +15,16 @@ use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedTransactionWithStatusMeta, UiTransactionEncoding,
 };
 
-use crate::common::logs_events::{PumpfunEvent, RaydiumEvent};
-use crate::common::logs_data::SwapBaseInLog;
+use crate::common::logs_events::PumpfunEvent;
 use crate::error::{ClientError, ClientResult};
 
-// 类型别名定义
 type TransactionsFilterMap = HashMap<String, SubscribeRequestFilterTransactions>;
 
-// 常量定义
-const AMM_V4: Pubkey = pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 const PUMP_PROGRAM_ID: Pubkey = pubkey!("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 const CONNECT_TIMEOUT: u64 = 10;
 const REQUEST_TIMEOUT: u64 = 60;
 const CHANNEL_SIZE: usize = 1000;
 
-// 枚举定义
-#[derive(Debug)]
-pub enum SwapType {
-    Pump,
-    Raydium,
-}
-
-// 结构体定义
-#[allow(dead_code)]
 pub struct TransactionPretty {
     pub slot: u64,
     pub signature: Signature,
@@ -122,37 +109,6 @@ impl YellowstoneGrpc {
         Ok(client.subscribe_with_request(Some(subscribe_request)).await)
     }
 
-    pub async fn subscribe_accounts(&self, accounts: Vec<String>) -> ClientResult<()> {
-        let transactions = self.get_subscribe_request_filter(accounts, vec![], vec![]);
-        let (mut subscribe_tx, mut stream) = self.connect(transactions).await?
-        .map_err(|e| ClientError::Other(format!("Failed to subscribe: {:?}", e)))?;
-        let (mut tx, mut rx) = mpsc::channel::<TransactionPretty>(CHANNEL_SIZE);
-
-        tokio::spawn(async move {
-            while let Some(message) = stream.next().await {
-                match message {
-                    Ok(msg) => {
-                        if let Err(e) = Self::handle_stream_message(msg, &mut tx, &mut subscribe_tx).await {
-                            error!("Error handling message: {:?}", e);
-                            break;
-                        }
-                    }
-                    Err(error) => {
-                        error!("Stream error: {error:?}");
-                        break;
-                    }
-                }
-            }
-        });
-
-        while let Some(transaction_pretty) = rx.next().await {
-            if let Err(e) = Self::process_transaction(transaction_pretty, &|_| {}, None).await {
-                error!("Error processing transaction: {:?}", e);
-            }
-        }
-        Ok(())
-    }
-
     pub async fn subscribe_pumpfun<F>(&self, callback: F, bot_wallet: Option<Pubkey>) -> ClientResult<()> 
     where
         F: Fn(PumpfunEvent) + Send + Sync + 'static,
@@ -211,7 +167,6 @@ impl YellowstoneGrpc {
         transactions
     }
 
-
     async fn handle_stream_message(
         msg: SubscribeUpdate,
         tx: &mut mpsc::Sender<TransactionPretty>,
@@ -258,78 +213,21 @@ impl YellowstoneGrpc {
             &vec![]
         };
 
-        if let Ok(swap_type) = Self::get_swap_type(&trade_raw) {
-            match swap_type {
-                SwapType::Raydium => {
-                    let event = RaydiumEvent::parse_logs::<SwapBaseInLog>(logs);
-                    info!("RaydiumEvent {:#?}", event);
+        let (create_event, trade_event) = PumpfunEvent::parse_logs(logs);
+        if let Some(create_event) = create_event {
+            callback(PumpfunEvent::NewToken(create_event));
+        }
+        if let Some(trade_event) = trade_event {
+            if let Some(bot_wallet_pubkey) = bot_wallet {
+                if trade_event.user == bot_wallet_pubkey {
+                    callback(PumpfunEvent::NewBotTrade(trade_event));
+                } else {
+                    callback(PumpfunEvent::NewUserTrade(trade_event));
                 }
-                SwapType::Pump => {
-                    let (create_event, trade_event) = PumpfunEvent::parse_logs(logs);
-                    if let Some(create_event) = create_event {
-                        callback(PumpfunEvent::NewToken(create_event));
-                    }
-                    if let Some(trade_event) = trade_event {
-                        if let Some(bot_wallet_pubkey) = bot_wallet {
-                            if trade_event.user == bot_wallet_pubkey {
-                                callback(PumpfunEvent::NewBotTrade(trade_event));
-                            } else {
-                                callback(PumpfunEvent::NewUserTrade(trade_event));
-                            }
-                        } else {
-                            callback(PumpfunEvent::NewUserTrade(trade_event));
-                        }
-                    }
-                }
+            } else {
+                callback(PumpfunEvent::NewUserTrade(trade_event));
             }
         }
         Ok(())
     }
-
-    pub fn get_swap_type(trade_raw: &EncodedTransactionWithStatusMeta) -> ClientResult<SwapType> {
-        let transaction = trade_raw.transaction.decode()
-            .ok_or_else(|| ClientError::Other("Failed to decode transaction".to_string()))?;
-        
-        let account_keys = transaction.message.static_account_keys();
-        let program_index = account_keys
-            .iter()
-            .position(|item| item == &AMM_V4 || item == &PUMP_PROGRAM_ID)
-            .ok_or_else(|| ClientError::Other("swap type program_id not found".to_string()))?;
-
-        match account_keys[program_index] {
-            AMM_V4 => Ok(SwapType::Raydium),
-            PUMP_PROGRAM_ID => Ok(SwapType::Pump),
-            _ => Err(ClientError::Other("Invalid program_id".to_string()))
-        }
-    }
-}
-
-async fn test_subscribe_pumpfun() -> ClientResult<()> {
-    // 创建YellowstoneGrpc实例
-    let endpoint = "https://grpc.mainnet.solana.com".to_string();
-    let client = YellowstoneGrpc::new(endpoint);
-
-    // 定义回调函数
-    let callback = |event: PumpfunEvent| {
-        match event {
-            PumpfunEvent::NewToken(token_info) => {
-                println!("收到新代币事件: {:?}", token_info);
-            },
-            PumpfunEvent::NewUserTrade(trade_info) => {
-                println!("收到用户交易事件: {:?}", trade_info);
-            },
-            PumpfunEvent::NewBotTrade(trade_info) => {
-                println!("收到机器人交易事件: {:?}", trade_info);
-            },
-            PumpfunEvent::Error(err) => {
-                println!("收到错误: {}", err);
-            }
-        }
-    };
-
-    // 订阅事件
-    let bot_wallet = None; // 可以设置为Some(bot_pubkey)来区分机器人交易
-    client.subscribe_pumpfun(callback, bot_wallet).await?;
-
-    Ok(())
 }
