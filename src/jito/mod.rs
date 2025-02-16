@@ -92,4 +92,14 @@ impl JitoClient {
         let bundles = vec![VersionedTransaction::from(transaction.clone())];
         Ok(self.client.send_bundle(&bundles).await?)
     }
+
+    pub async fn send_transactions(
+        &self,
+        transactions: &Vec<Transaction>,
+    ) -> Result<String, anyhow::Error> {
+        let bundles: Vec<VersionedTransaction> = transactions.iter()
+        .map(|t| VersionedTransaction::from(t.clone()))
+        .collect();  // 显式指定类型
+        Ok(self.client.send_bundle(&bundles).await?)
+    }
 }
