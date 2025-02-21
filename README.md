@@ -7,18 +7,10 @@ A comprehensive Rust SDK for seamless interaction with the PumpFun Solana progra
 1. Add `logs_filters` to parse the logs.
 1. Add `logs_parser` to process the logs.
 2. Add `logs_data` to define the data structure of the logs.
-4. Add `logs_events` to define the event of the logs.
+4. Add `trade events` to define the event of the logs.
 3. Add `logs_subscribe` to subscribe the logs of the PumpFun program.
 6. Add `jito` to send transaction with Jito.
-
-## Installation
-
-Add the following to your `Cargo.toml`:
-
-```toml
-[dependencies]
-mai3-pumpfun-sdk = "2.4.5"
-```
+7. Add `yellowstone grpc` to subscribe the logs of the PumpFun program.
 
 ## Usage
 
@@ -91,9 +83,9 @@ let mint: Keypair = Keypair::new();
 
 // Token metadata
 let metadata: CreateTokenMetadata = CreateTokenMetadata {
-    name: "Lorem ipsum".to_string(),
-    symbol: "LIP".to_string(),
-    description: "Lorem ipsum dolor, sit amet consectetur adipisicing elit. Quam, nisi.".to_string(),
+    name: "Elon Doge".to_string(),
+    symbol: "EDOGE".to_string(),
+    description: "Elon Musk Doge".to_string(),
     file: "/path/to/image.png".to_string(),
     twitter: None,
     telegram: None,
