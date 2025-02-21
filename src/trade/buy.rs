@@ -19,7 +19,7 @@ pub async fn buy(
     mint: &Pubkey,
     amount_sol: u64,
     slippage_basis_points: Option<u64>,
-    priority_fee: Option<PriorityFee>,
+    priority_fee: PriorityFee,
 ) -> Result<Signature, anyhow::Error> {
     let transaction = build_buy_transaction(rpc, payer, mint, amount_sol, slippage_basis_points, priority_fee).await?;
     let signature = rpc.send_transaction(&transaction)?;
@@ -34,11 +34,11 @@ pub async fn buy_with_jito(
     mint: &Pubkey,
     amount_sol: u64,
     slippage_basis_points: Option<u64>,
-    jito_fee: Option<f64>,
+    priority_fee: PriorityFee,
 ) -> Result<String, anyhow::Error> {
     let start_time = Instant::now();
 
-    let transaction = build_buy_transaction_with_jito(rpc, jito_client, payer, mint, amount_sol, slippage_basis_points, jito_fee).await?;
+    let transaction = build_buy_transaction_with_jito(rpc, jito_client, payer, mint, amount_sol, slippage_basis_points, priority_fee).await?;
     let signature = jito_client.send_transaction(&transaction).await?;
 
     println!("Total Jito buy operation time: {:?}ms", start_time.elapsed().as_millis());
@@ -53,13 +53,13 @@ pub async fn buy_list_with_jito(
     mint: &Pubkey,
     amount_sols: Vec<u64>,
     slippage_basis_points: Option<u64>,
-    jito_fee: Option<f64>,
+    priority_fee: PriorityFee,
 ) -> Result<String, anyhow::Error> {
     let start_time = Instant::now();
 
     let mut transactions = vec![];
     for (i, payer) in payers.iter().enumerate() {
-        let transaction = build_buy_transaction_with_jito(rpc, jito_client, payer, mint, amount_sols[i], slippage_basis_points, jito_fee).await?;
+        let transaction = build_buy_transaction_with_jito(rpc, jito_client, payer, mint, amount_sols[i], slippage_basis_points, priority_fee).await?;
         transactions.push(transaction);
     }
     
@@ -76,7 +76,7 @@ pub async fn build_buy_transaction(
     mint: &Pubkey,
     amount_sol: u64,
     slippage_basis_points: Option<u64>,
-    priority_fee: Option<PriorityFee>,
+    priority_fee: PriorityFee,
 ) -> Result<Transaction, anyhow::Error> {
     let instructions = build_buy_instructions(rpc, payer, mint, amount_sol, slippage_basis_points, priority_fee).await?;
 
@@ -98,9 +98,9 @@ pub async fn build_buy_transaction_with_jito(
     mint: &Pubkey,
     amount_sol: u64,
     slippage_basis_points: Option<u64>,
-    jito_fee: Option<f64>,
+    priority_fee: PriorityFee,  
 ) -> Result<Transaction, anyhow::Error> {
-    let instructions = build_buy_instructions_with_jito(rpc, jito_client, payer, mint, amount_sol, slippage_basis_points, jito_fee).await?;
+    let instructions = build_buy_instructions_with_jito(rpc, jito_client, payer, mint, amount_sol, slippage_basis_points, priority_fee).await?;
     let recent_blockhash = rpc.get_latest_blockhash()?;
     let transaction = Transaction::new_signed_with_payer(
         &instructions,
@@ -118,7 +118,7 @@ pub async fn build_buy_instructions(
     mint: &Pubkey,
     amount_sol: u64,
     slippage_basis_points: Option<u64>,
-    priority_fee: Option<PriorityFee>,
+    priority_fee: PriorityFee,
 ) -> Result<Vec<Instruction>, anyhow::Error> {
     if amount_sol == 0 {
         return Err(anyhow!("Amount cannot be zero"));
@@ -183,20 +183,14 @@ pub async fn build_buy_instructions(
     let result_cu = result.units_consumed.ok_or_else(|| anyhow!("No compute units consumed"))?;
     let fees = rpc.get_recent_prioritization_fees(&[])?;
     let average_fees = if fees.is_empty() {
-        DEFAULT_COMPUTE_UNIT_PRICE
+        sol_to_lamports(DEFAULT_COMPUTE_UNIT_PRICE)
     } else {
         fees.iter()
             .map(|fee| fee.prioritization_fee)
             .sum::<u64>() / fees.len() as u64
     };
 
-    let unit_price = match priority_fee {
-        None => average_fees,
-        Some(pf) => pf.price.unwrap_or(DEFAULT_COMPUTE_UNIT_PRICE)
-    };
-
-    let unit_price = if unit_price == 0 { DEFAULT_COMPUTE_UNIT_PRICE } else { unit_price };
-
+    let unit_price = if average_fees == 0 { sol_to_lamports(priority_fee.price) } else { average_fees };
     instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
     instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
 
@@ -211,7 +205,7 @@ pub async fn build_buy_instructions_with_jito(
     mint: &Pubkey,
     amount_sol: u64,
     slippage_basis_points: Option<u64>,
-    jito_fee: Option<f64>,
+    priority_fee: PriorityFee,
 ) -> Result<Vec<Instruction>, anyhow::Error> {
     if amount_sol == 0 {
         return Err(anyhow!("Amount cannot be zero"));
@@ -228,7 +222,11 @@ pub async fn build_buy_instructions_with_jito(
     
     let buy_amount_with_slippage = calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
-    let mut instructions = vec![];
+    let mut instructions = vec![
+        ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.price)),
+        ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.limit) as u32),
+    ];
+
     let ata = get_associated_token_address(&payer.pubkey(), mint);
     if rpc.get_account(&ata).is_err() {
         instructions.push(create_associated_token_account(
@@ -251,7 +249,7 @@ pub async fn build_buy_instructions_with_jito(
 
     let tip_account = jito_client.get_tip_account().await.map_err(|e| anyhow!(e))?;
 
-    let jito_fee = jito_fee.unwrap_or(JITO_TIP_AMOUNT);
+    let jito_fee = priority_fee.jito_fee.unwrap_or(JITO_TIP_AMOUNT);
     instructions.push(
         system_instruction::transfer(
             &payer.pubkey(),
