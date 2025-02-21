@@ -60,7 +60,7 @@ impl JitoClient {
         {
             let accounts = self.tip_accounts.read().await;
             if !accounts.is_empty() {
-                if let Some(acc) = accounts.iter().choose(&mut rand::thread_rng()) {
+                if let Some(acc) = accounts.iter().choose(&mut rand::rng()) {
                     return Pubkey::from_str(acc)
                         .map_err(|err| {
                             error!("jito: failed to parse Pubkey: {:?}", err);

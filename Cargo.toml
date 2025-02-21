@@ -1,12 +1,12 @@
 [package]
 name = "mai3-pumpfun-sdk"
-version = "2.4.5"
+version = "2.4.3"
 edition = "2021"
-authors = ["William <william@mai3.io>"]
+authors = ["William <byteblock6@gmail.com>"]
 repository = "https://github.com/MiracleAI-Labs/pumpfun-sdk"
 description = "Rust SDK to interact with the Pump.fun Solana program."
 license = "MIT"
-keywords = ["solana", "memecoins", "pumpfun", "pumpfun-sdk"]
+keywords = ["solana", "memecoins", "pumpfun", "pumpfun-sdk", "pumpbot"]
 readme = "README.md"
 
 [lib]
@@ -33,7 +33,7 @@ bs58 = "0.5.1"
 rand = "0.9.0"
 bincode = "1.3.3"
 anyhow = "1.0.90"
-reqwest = { version = "0.12.12", features = ["json"] }
+reqwest = { version = "0.12.12", features = ["json", "multipart"] }
 tonic = { version = "0.12.3", features = ["tls", "tls-webpki-roots", "tls-roots"] }
 tokio = { version = "1.42.0" , features = ["full", "rt-multi-thread"]}
 yellowstone-grpc-client = {  version = "5.0.0" }
