@@ -55,8 +55,8 @@ pub mod accounts {
 pub mod trade {
     pub const JITO_TIP_AMOUNT: f64 = 0.0001;
     pub const DEFAULT_SLIPPAGE: u64 = 3000; // 30%
-    pub const DEFAULT_COMPUTE_UNIT_LIMIT: f64 = 78000.0;
-    pub const DEFAULT_COMPUTE_UNIT_PRICE: f64 = 500000.0;
+    pub const DEFAULT_COMPUTE_UNIT_LIMIT: u32 = 78000;
+    pub const DEFAULT_COMPUTE_UNIT_PRICE: u64 = 500000;
     pub const DEFAULT_BUY_JITO_FEE: f64 = 0.0006;
     pub const DEFAULT_SELL_JITO_FEE: f64 = 0.00006;
 }

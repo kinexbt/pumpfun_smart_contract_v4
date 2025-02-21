@@ -17,8 +17,8 @@ lazy_static::lazy_static! {
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
 
 pub struct PriorityFee {
-    pub unit_limit: f64,
-    pub unit_price: f64,
+    pub unit_limit: u32,
+    pub unit_price: u64,
     pub buy_jito_fee: f64,
     pub sell_jito_fee: f64,
 }
@@ -67,10 +67,8 @@ pub async fn transfer_sol(rpc: &RpcClient, payer: &Keypair, receive_wallet: &Pub
 #[inline]
 pub fn create_priority_fee_instructions(priority_fee: PriorityFee) -> Vec<Instruction> {
     let mut instructions = Vec::with_capacity(2);
-    let unit_limit = sol_to_lamports(priority_fee.unit_limit);
-    let unit_price = sol_to_lamports(priority_fee.unit_price);
-    instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(unit_limit as u32));
-    instructions.push(ComputeBudgetInstruction::set_compute_unit_price(unit_price));
+    instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(priority_fee.unit_limit));
+    instructions.push(ComputeBudgetInstruction::set_compute_unit_price(priority_fee.unit_price));
     
     instructions
 }

@@ -183,7 +183,7 @@ pub async fn build_buy_instructions(
     let result_cu = result.units_consumed.ok_or_else(|| anyhow!("No compute units consumed"))?;
     let fees = rpc.get_recent_prioritization_fees(&[])?;
     let average_fees = if fees.is_empty() {
-        sol_to_lamports(DEFAULT_COMPUTE_UNIT_PRICE)
+        DEFAULT_COMPUTE_UNIT_PRICE
     } else {
         fees.iter()
             .map(|fee| fee.prioritization_fee)
@@ -191,7 +191,7 @@ pub async fn build_buy_instructions(
     };
 
     
-    let unit_price = if average_fees == 0 { sol_to_lamports(priority_fee.unit_price) } else { average_fees };
+    let unit_price = if average_fees == 0 { priority_fee.unit_price } else { average_fees };
     instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
     instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
 
@@ -224,8 +224,8 @@ pub async fn build_buy_instructions_with_jito(
     let buy_amount_with_slippage = calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
     let mut instructions = vec![
-        ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.unit_price)),
-        ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.unit_limit) as u32),
+        ComputeBudgetInstruction::set_compute_unit_price(priority_fee.unit_price),
+        ComputeBudgetInstruction::set_compute_unit_limit(priority_fee.unit_limit),
     ];
 
     let ata = get_associated_token_address(&payer.pubkey(), mint);

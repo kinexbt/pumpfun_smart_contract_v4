@@ -8,7 +8,7 @@ use spl_token::instruction::close_account;
 
 use std::time::Instant;
 
-use crate::{constants::trade::{DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SLIPPAGE, JITO_TIP_AMOUNT}, instruction, jito::JitoClient};
+use crate::{constants::trade::{DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SLIPPAGE}, instruction, jito::JitoClient};
 
 use super::common::{calculate_with_slippage_sell, get_bonding_curve_account, get_global_account, PriorityFee};
 
@@ -212,14 +212,14 @@ pub async fn build_sell_instructions(
     let result_cu = result.units_consumed.ok_or_else(|| anyhow!("No compute units consumed"))?;
     let fees = rpc.get_recent_prioritization_fees(&[])?;
     let average_fees = if fees.is_empty() {
-        sol_to_lamports(DEFAULT_COMPUTE_UNIT_PRICE)
+        DEFAULT_COMPUTE_UNIT_PRICE
     } else {
         fees.iter()
             .map(|fee| fee.prioritization_fee)
             .sum::<u64>() / fees.len() as u64
     };
 
-    let unit_price = if average_fees == 0 { sol_to_lamports(priority_fee.unit_price) } else { average_fees };
+    let unit_price = if average_fees == 0 { priority_fee.unit_price } else { average_fees };
     instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
     instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
 
@@ -253,8 +253,8 @@ pub async fn build_sell_instructions_with_jito(
     );
 
     let mut instructions = vec![
-        ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.unit_price)),
-        ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.unit_limit) as u32),
+        ComputeBudgetInstruction::set_compute_unit_price(priority_fee.unit_price),
+        ComputeBudgetInstruction::set_compute_unit_limit(priority_fee.unit_limit),
     ];
 
     instructions.push(instruction::sell(
