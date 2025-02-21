@@ -294,18 +294,33 @@ impl PumpFun {
     }
 
     #[inline]
-    pub async fn get_sol_balance(&self, payer: &Pubkey) -> Result<u64, anyhow::Error> {
+    pub fn get_sol_balance(&self, payer: &Pubkey) -> Result<u64, anyhow::Error> {
         trade::common::get_sol_balance(&self.rpc, payer)
     }
 
     #[inline]
-    pub async fn get_token_balance(&self, payer: &Pubkey, mint: &Pubkey) -> Result<u64, anyhow::Error> {
+    pub fn get_payer_sol_balance(&self) -> Result<u64, anyhow::Error> {
+        trade::common::get_sol_balance(&self.rpc, &self.payer.pubkey())
+    }
+
+    #[inline]
+    pub fn get_token_balance(&self, payer: &Pubkey, mint: &Pubkey) -> Result<u64, anyhow::Error> {
         trade::common::get_token_balance(&self.rpc, payer, mint)
     }
 
     #[inline]
-    pub async fn get_payer_token_balance(&self, mint: &Pubkey) -> Result<u64, anyhow::Error> {
+    pub fn get_payer_token_balance(&self, mint: &Pubkey) -> Result<u64, anyhow::Error> {
         trade::common::get_token_balance(&self.rpc, &self.payer.pubkey(), mint)
+    }
+
+    #[inline]
+    pub fn get_payer_pubkey(&self) -> Pubkey {
+        self.payer.pubkey()
+    }
+
+    #[inline]
+    pub fn get_payer(&self) -> &Keypair {
+        self.payer.as_ref()
     }
 
     #[inline]
