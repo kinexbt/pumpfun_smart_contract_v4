@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use serde::Deserialize;
 use tokio::sync::RwLock;
 use std::{collections::HashMap, sync::Arc};
 use solana_client::rpc_client::RpcClient;
@@ -6,23 +7,30 @@ use solana_sdk::{
     compute_budget::ComputeBudgetInstruction, instruction::Instruction, native_token::sol_to_lamports, pubkey::Pubkey, signature::Keypair, signer::Signer, system_instruction, transaction::Transaction
 };
 use spl_associated_token_account::get_associated_token_address;
-use crate::{accounts, common::logs_data::TradeInfo, constants::{self, trade::{DEFAULT_COMPUTE_UNIT_LIMIT, DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SLIPPAGE}}};
+use crate::{accounts, common::logs_data::TradeInfo, constants::{self, trade::{DEFAULT_BUY_JITO_FEE, DEFAULT_COMPUTE_UNIT_LIMIT, DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SELL_JITO_FEE, DEFAULT_SLIPPAGE}}};
 use borsh::BorshDeserialize;
 
 lazy_static::lazy_static! {
     static ref ACCOUNT_CACHE: RwLock<HashMap<Pubkey, Arc<accounts::GlobalAccount>>> = RwLock::new(HashMap::new());
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
+
 pub struct PriorityFee {
-    pub limit: f64,
-    pub price: f64,
-    pub jito_fee: Option<f64>,
+    pub unit_limit: f64,
+    pub unit_price: f64,
+    pub buy_jito_fee: f64,
+    pub sell_jito_fee: f64,
 }
 
 impl Default for PriorityFee {
     fn default() -> Self {
-        Self { limit: DEFAULT_COMPUTE_UNIT_LIMIT, price: DEFAULT_COMPUTE_UNIT_PRICE, jito_fee: None }
+        Self { 
+            unit_limit: DEFAULT_COMPUTE_UNIT_LIMIT, 
+            unit_price: DEFAULT_COMPUTE_UNIT_PRICE, 
+            buy_jito_fee: DEFAULT_BUY_JITO_FEE, 
+            sell_jito_fee: DEFAULT_SELL_JITO_FEE 
+        }
     }
 }
 
@@ -59,8 +67,10 @@ pub async fn transfer_sol(rpc: &RpcClient, payer: &Keypair, receive_wallet: &Pub
 #[inline]
 pub fn create_priority_fee_instructions(priority_fee: PriorityFee) -> Vec<Instruction> {
     let mut instructions = Vec::with_capacity(2);
-    instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.limit) as u32));
-    instructions.push(ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.price)));
+    let unit_limit = sol_to_lamports(priority_fee.unit_limit);
+    let unit_price = sol_to_lamports(priority_fee.unit_price);
+    instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(unit_limit as u32));
+    instructions.push(ComputeBudgetInstruction::set_compute_unit_price(unit_price));
     
     instructions
 }

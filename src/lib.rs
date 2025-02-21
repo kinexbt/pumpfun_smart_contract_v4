@@ -29,6 +29,7 @@ pub struct PumpFun {
     pub payer: Arc<Keypair>,
     pub rpc: RpcClient,
     pub jito_client: Option<JitoClient>,
+    pub priority_fee: PriorityFee,
 }
 
 impl Clone for PumpFun {
@@ -40,6 +41,7 @@ impl Clone for PumpFun {
                 self.rpc.commitment()
             ),
             jito_client: self.jito_client.clone(),
+            priority_fee: self.priority_fee.clone(),
         }
     }
 }
@@ -49,8 +51,9 @@ impl PumpFun {
     pub fn new(
         payer: Arc<Keypair>,
         rpc_url: String,
-        commitment: Option<CommitmentConfig>,
         jito_url: Option<String>,
+        commitment: Option<CommitmentConfig>,
+        priority_fee: PriorityFee,
     ) -> Self {
         let rpc = RpcClient::new_with_commitment(
             rpc_url,
@@ -63,6 +66,7 @@ impl PumpFun {
             payer,
             rpc,
             jito_client,
+            priority_fee,
         }
     }
 
@@ -71,14 +75,13 @@ impl PumpFun {
         &self,
         mint: &Keypair,
         ipfs: TokenMetadataIPFS,
-        priority_fee: PriorityFee,
     ) -> Result<Signature, anyhow::Error> {
         trade::create::create(
             &self.rpc,
             &self.payer,
             mint,
             ipfs,
-            priority_fee,
+            self.priority_fee,
         ).await 
     }
 
@@ -88,7 +91,6 @@ impl PumpFun {
         ipfs: TokenMetadataIPFS,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<Signature, anyhow::Error> {
         trade::create::create_and_buy(
             &self.rpc,
@@ -97,7 +99,7 @@ impl PumpFun {
             ipfs,
             amount_sol,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -108,7 +110,6 @@ impl PumpFun {
         ipfs: TokenMetadataIPFS,
         amount_sols: Vec<u64>,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<String, anyhow::Error> { 
         trade::create::create_and_buy_list_with_jito(
             &self.rpc,
@@ -118,7 +119,7 @@ impl PumpFun {
             ipfs,
             amount_sols,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -129,7 +130,6 @@ impl PumpFun {
         ipfs: TokenMetadataIPFS,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<String, anyhow::Error> { 
         trade::create::create_and_buy_with_jito(
             &self.rpc,
@@ -139,7 +139,7 @@ impl PumpFun {
             ipfs,
             amount_sol,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
     /// Buy tokens
@@ -148,7 +148,6 @@ impl PumpFun {
         mint: &Pubkey,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<Signature, anyhow::Error> {
         trade::buy::buy(
             &self.rpc,
@@ -156,7 +155,7 @@ impl PumpFun {
             mint,
             amount_sol,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -166,7 +165,6 @@ impl PumpFun {
         mint: &Pubkey,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<String, anyhow::Error> {
         trade::buy::buy_with_jito(
             &self.rpc,
@@ -175,7 +173,7 @@ impl PumpFun {
             mint,
             amount_sol,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -185,7 +183,6 @@ impl PumpFun {
         mint: &Pubkey,
         amount_sols: Vec<u64>,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<String, anyhow::Error> {
         trade::buy::buy_list_with_jito(
             &self.rpc,
@@ -194,7 +191,7 @@ impl PumpFun {
             mint,
             amount_sols,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -204,7 +201,6 @@ impl PumpFun {
         mint: &Pubkey,
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<Signature, anyhow::Error> {
         trade::sell::sell(
             &self.rpc,
@@ -212,7 +208,7 @@ impl PumpFun {
             mint,
             amount_token,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -222,7 +218,6 @@ impl PumpFun {
         mint: &Pubkey,
         percent: u64,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<Signature, anyhow::Error> {
         trade::sell::sell_by_percent(
             &self.rpc,
@@ -230,7 +225,7 @@ impl PumpFun {
             mint,
             percent,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -239,7 +234,6 @@ impl PumpFun {
         mint: &Pubkey,
         percent: u64,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<String, anyhow::Error> {
         trade::sell::sell_by_percent_with_jito(
             &self.rpc,
@@ -248,7 +242,7 @@ impl PumpFun {
             mint,
             percent,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 
@@ -258,7 +252,6 @@ impl PumpFun {
         mint: &Pubkey,
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
-        priority_fee: PriorityFee,
     ) -> Result<String, anyhow::Error> {
         let jito_client = self.jito_client.as_ref()
             .ok_or_else(|| anyhow!("Jito client not found"))?;
@@ -270,7 +263,7 @@ impl PumpFun {
             mint,
             amount_token,
             slippage_basis_points,
-            priority_fee,
+            self.priority_fee,
         ).await
     }
 

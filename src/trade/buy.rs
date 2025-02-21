@@ -190,7 +190,8 @@ pub async fn build_buy_instructions(
             .sum::<u64>() / fees.len() as u64
     };
 
-    let unit_price = if average_fees == 0 { sol_to_lamports(priority_fee.price) } else { average_fees };
+    
+    let unit_price = if average_fees == 0 { sol_to_lamports(priority_fee.unit_price) } else { average_fees };
     instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
     instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
 
@@ -223,8 +224,8 @@ pub async fn build_buy_instructions_with_jito(
     let buy_amount_with_slippage = calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
     let mut instructions = vec![
-        ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.price)),
-        ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.limit) as u32),
+        ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.unit_price)),
+        ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.unit_limit) as u32),
     ];
 
     let ata = get_associated_token_address(&payer.pubkey(), mint);
@@ -249,7 +250,7 @@ pub async fn build_buy_instructions_with_jito(
 
     let tip_account = jito_client.get_tip_account().await.map_err(|e| anyhow!(e))?;
 
-    let jito_fee = priority_fee.jito_fee.unwrap_or(JITO_TIP_AMOUNT);
+    let jito_fee = priority_fee.buy_jito_fee;
     instructions.push(
         system_instruction::transfer(
             &payer.pubkey(),

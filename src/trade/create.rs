@@ -242,7 +242,7 @@ pub async fn build_create_and_buy_instructions(
     let result_cu = result.units_consumed.ok_or_else(|| anyhow!("No compute units consumed"))?;
     let fees = rpc.get_recent_prioritization_fees(&[])?;
     let average_fees = if fees.is_empty() {
-        sol_to_lamports(priority_fee.price)
+        sol_to_lamports(priority_fee.unit_price)
     } else {
         fees.iter()
             .map(|fee| fee.prioritization_fee)
@@ -250,7 +250,7 @@ pub async fn build_create_and_buy_instructions(
     };
 
 
-    let unit_price = if average_fees == 0 { sol_to_lamports(priority_fee.price) } else { average_fees };
+    let unit_price = if average_fees == 0 { sol_to_lamports(priority_fee.unit_price) } else { average_fees };
 
     instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
     instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
@@ -278,8 +278,8 @@ pub async fn build_create_and_buy_instructions_with_jito(
         get_buy_amount_with_slippage(amount_sol, slippage_basis_points);
 
     let mut instructions = vec![
-        ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.price)),
-        ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.limit) as u32),
+        ComputeBudgetInstruction::set_compute_unit_price(sol_to_lamports(priority_fee.unit_price)),
+        ComputeBudgetInstruction::set_compute_unit_limit(sol_to_lamports(priority_fee.unit_limit) as u32),
     ];
 
     instructions.push(instruction::create(
@@ -313,7 +313,7 @@ pub async fn build_create_and_buy_instructions_with_jito(
     ));
 
     let tip_account = jito_client.get_tip_account().await.map_err(|e| anyhow!(e))?;
-    let jito_fee = priority_fee.jito_fee.unwrap_or(JITO_TIP_AMOUNT);
+    let jito_fee = priority_fee.buy_jito_fee;
     instructions.push(
         system_instruction::transfer(
             &payer.pubkey(),
