@@ -39,12 +39,12 @@ impl PumpFun {
         payer: Arc<Keypair>,
         rpc_url: String,
         jito_url: String,
-        commitment: Option<CommitmentConfig>,
+        commitment: CommitmentConfig,
         priority_fee: PriorityFee,
     ) -> Self {
         let rpc = Arc::new(RpcClient::new_with_commitment(
             rpc_url,
-            commitment.unwrap_or(CommitmentConfig::processed())
+            commitment
         ));   
 
         let jito_client = Arc::new(JitoClient::new(&jito_url, None));
