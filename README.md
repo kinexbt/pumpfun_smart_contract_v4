@@ -16,6 +16,8 @@ A comprehensive Rust SDK for seamless interaction with the PumpFun Solana progra
 
 ### logs subscription for token create and trade  transaction
 ```rust
+use std::sync::{Arc, OnceLock};
+use pumpfun_sdk::grpc::YellowstoneGrpc;
 
 // create grpc client
 let grpc_url = "http://127.0.0.1:10000";
@@ -50,6 +52,13 @@ client.subscribe_pumpfun(callback, Some(payer_keypair.pubkey())).await?;
 
 ### pumpfun Create, Buy, Sell
 ```rust
+use std::sync::{Arc, OnceLock};
+use solana_sdk::{
+    signature::Keypair,
+    commitment_config::CommitmentConfig,
+};
+use pumpfun_sdk::{error::ClientResult, PumpFun};
+use pumpfun_sdk::common::{Cluster, PriorityFee};
 
 let payer = Keypair::from_base58_string(&settings.dex.payer.clone());
 let cluster = Cluster::new( 
