@@ -4,123 +4,78 @@ A comprehensive Rust SDK for seamless interaction with the PumpFun Solana progra
 
 
 # Explanation
-1. Add `logs_filters` to parse the logs.
-1. Add `logs_parser` to process the logs.
-2. Add `logs_data` to define the data structure of the logs.
-4. Add `trade events` to define the event of the logs.
-3. Add `logs_subscribe` to subscribe the logs of the PumpFun program.
-6. Add `jito` to send transaction with Jito.
-7. Add `yellowstone grpc` to subscribe the logs of the PumpFun program.
+1. Add `create, buy, sell` for pump.fun.
+2. Add `logs_subscribe` to subscribe the logs of the PumpFun program.
+3. Add `yellowstone grpc` to subscribe the logs of the PumpFun program.
+4. Add `jito` to send transaction with Jito.
+5. Add `nextblock` to send transaction with nextblock.
+6. Add `0slot` to send transaction with 0slot.
+7. Submit a transaction using Jito, Nextblock, and 0slot simultaneously; the fastest one will succeed, while the others will fail. 
 
 ## Usage
 
 ### logs subscription for token create and trade  transaction
 ```rust
-use pumpfun_sdk::common::{
-    logs_events::DexEvent,
-    logs_subscribe::{tokens_subscription, stop_subscription}
-};
-use solana_sdk::commitment_config::CommitmentConfig;
 
-println!("Starting token subscription...");
-
-// wss 
-let ws_url = "wss://api.mainnet-beta.solana.com";
-
-// Set commitment
-let commitment = CommitmentConfig::confirmed();
+// create grpc client
+let grpc_url = "http://127.0.0.1:10000";
+let client = YellowstoneGrpc::new(grpc_url);
 
 // Define callback function
-let callback = |event: DexEvent| {
+let callback = |event: PumpfunEvent| {
     match event {
-        DexEvent::NewToken(token_info) => {
+        PumpfunEvent::NewToken(token_info) => {
             println!("Received new token event: {:?}", token_info);
         },
-        DexEvent::NewUserTrade(trade_info) => {
+        PumpfunEvent::NewDevTrade(trade_info) => {
+            println!("Received dev trade event: {:?}", trade_info);
+        },
+        PumpfunEvent::NewUserTrade(trade_info) => {
             println!("Received new trade event: {:?}", trade_info);
         },
-        DexEvent::NewBotTrade(trade_info) => {
+        PumpfunEvent::NewBotTrade(trade_info) => {
             println!("Received new bot trade event: {:?}", trade_info);
         }
-        DexEvent::Error(err) => {
+        PumpfunEvent::Error(err) => {
             println!("Received error: {}", err);
         }
     }
 };
 
-// Start subscription
-let subscription = tokens_subscription(
-    ws_url,
-    commitment,
-    callback,
-    None
-).await.unwrap();
+let payer_keypair = Keypair::from_base58_string("your private key");
+let client = GrpcClient::get_instance();
+client.subscribe_pumpfun(callback, Some(payer_keypair.pubkey())).await?;
 
-tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-
-// Stop subscription
-stop_subscription(subscription).await;
-
-println!("Ended token subscription.");
 ```
 
 ### pumpfun Create, Buy, Sell
 ```rust
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL,
-    signature::{Keypair, Signature},
-    signer::Signer,
-};
 
-use pumpfun_sdk::{accounts::BondingCurveAccount, utils::CreateTokenMetadata, PriorityFee, PumpFun};
+let payer = Keypair::from_base58_string(&settings.dex.payer.clone());
+let cluster = Cluster::new( 
+    rpc_url.clone(),
+    jito_url.clone(),
+    nextblock_url.clone(),
+    nextblock_auth_token.clone(),
+    zeroslot_url.clone(),
+    zeroslot_auth_token.clone(),
+    priority_fee,
+    CommitmentConfig::processed(),
+    use_jito,
+    use_nextblock,
+    use_zeroslot,
+);
 
-// Create a new PumpFun client
-let payer: Keypair = Keypair::new();
-let client: PumpFun = PumpFun::new(Cluster::Mainnet, None, &payer, None, None);
+// create pumpfun instance
+let pumpfun = PumpFun::new(Arc::new(payer), &cluster).await;
 
 // Mint keypair
-let mint: Keypair = Keypair::new();
+let mint_pubkey: Keypair = Keypair::new();
 
-// Token metadata
-let metadata: CreateTokenMetadata = CreateTokenMetadata {
-    name: "Elon Doge".to_string(),
-    symbol: "EDOGE".to_string(),
-    description: "Elon Musk Doge".to_string(),
-    file: "/path/to/image.png".to_string(),
-    twitter: None,
-    telegram: None,
-    website: Some("https://example.com".to_string()),
-};
+// buy token with tip
+pumpfun.buy_with_tip(mint_pubkey, 10000, None).await?;
 
-// Optional priority fee to expedite transaction processing (e.g., 100 LAMPORTS per compute unit, equivalent to a 0.01 SOL priority fee)
-let fee: Option<PriorityFee> = Some(PriorityFee {
-    limit: Some(100_000),
-    price: Some(100_000_000),
-});
+// sell token by percent with tip
+pumpfun.sell_by_percent_with_tip(mint_pubkey, 100, None).await?;
 
-// Create token with metadata
-let signature: Signature = client.create(&mint, metadata.clone(), fee).await?;
-println!("Created token: {}", signature);
-
-// Print amount of SOL and LAMPORTS
-let amount_sol: u64 = 1;
-let amount_lamports: u64 = LAMPORTS_PER_SOL * amount_sol;
-println!("Amount in SOL: {}", amount_sol);
-println!("Amount in LAMPORTS: {}", amount_lamports);
-
-// Create and buy tokens with metadata
-let signature: Signature = client.create_and_buy(&mint, metadata.clone(), amount_lamports, None, fee).await?;
-println!("Created and bought tokens: {}", signature);
-
-// Print the curve
-let curve: BondingCurveAccount = client.get_bonding_curve_account(&mint.pubkey())?;
-println!("{:?}", curve);
-
-// Buy tokens (ATA will be created automatically if needed)
-let signature: Signature = client.buy(&mint.pubkey(), amount_lamports, None, fee).await?;
-println!("Bought tokens: {}", signature);
-
-// Sell tokens (sell all tokens)
-let signature: Signature = client.sell(&mint.pubkey(), None, None, fee).await?;
-println!("Sold tokens: {}", signature);
 ```
