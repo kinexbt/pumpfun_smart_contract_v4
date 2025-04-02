@@ -13,6 +13,15 @@ A comprehensive Rust SDK for seamless interaction with the PumpFun Solana progra
 7. Submit a transaction using Jito, Nextblock, and 0slot simultaneously; the fastest one will succeed, while the others will fail. 
 
 ## Usage
+```shell
+cd `your project root directory`
+git clone https://github.com/MiracleAI-Labs/pumpfun-sdk
+```
+
+```toml
+# add to your Cargo.toml
+pumpfun-sdk = { path = "./pumpfun-sdk", version = "2.4.3" }
+```
 
 ### logs subscription for token create and trade  transaction
 ```rust
@@ -57,7 +66,7 @@ use solana_sdk::{
     signature::Keypair,
     commitment_config::CommitmentConfig,
 };
-use pumpfun_sdk::{error::ClientResult, PumpFun};
+use pumpfun_sdk::PumpFun;
 use pumpfun_sdk::common::{Cluster, PriorityFee};
 
 let payer = Keypair::from_base58_string(&settings.dex.payer.clone());
