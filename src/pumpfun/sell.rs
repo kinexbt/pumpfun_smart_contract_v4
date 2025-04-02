@@ -60,7 +60,7 @@ pub async fn sell_by_percent(
     sell(rpc, payer, mint, Some(amount), slippage_basis_points, priority_fee).await
 }
 
-pub async fn sell_by_percent_with_jito(
+pub async fn sell_by_percent_with_tip(
     rpc: Arc<SolanaRpcClient>,
     fee_clients: Vec<Arc<FeeClient>>,
     payer: Arc<Keypair>,
@@ -75,11 +75,11 @@ pub async fn sell_by_percent_with_jito(
 
     let (balance_u64, _) = get_token_balance(rpc.as_ref(), payer.as_ref(), &mint).await?;
     let amount = balance_u64 * percent / 100;
-    sell_with_jito(rpc, fee_clients, payer, mint, Some(amount), slippage_basis_points, priority_fee).await
+    sell_with_tip(rpc, fee_clients, payer, mint, Some(amount), slippage_basis_points, priority_fee).await
 }
 
 /// Sell tokens using Jito
-pub async fn sell_with_jito(
+pub async fn sell_with_tip(
     rpc: Arc<SolanaRpcClient>,
     fee_clients: Vec<Arc<FeeClient>>,
     payer: Arc<Keypair>,

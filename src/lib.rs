@@ -221,13 +221,13 @@ impl PumpFun {
         ).await
     }
 
-    pub async fn sell_by_percent_with_jito(
+    pub async fn sell_by_percent_with_tip(
         &self,
         mint: Pubkey,
         percent: u64,
         slippage_basis_points: Option<u64>,
     ) -> Result<(), anyhow::Error> {
-        pumpfun::sell::sell_by_percent_with_jito(
+        pumpfun::sell::sell_by_percent_with_tip(
             self.rpc.clone(),
             self.fee_clients.clone(),
             self.payer.clone(),
@@ -239,13 +239,13 @@ impl PumpFun {
     }
 
     /// Sell tokens using Jito
-    pub async fn sell_with_jito(
+    pub async fn sell_with_tip(
         &self,
         mint: Pubkey,
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
     ) -> Result<(), anyhow::Error> {
-        pumpfun::sell::sell_with_jito(
+        pumpfun::sell::sell_with_tip(
             self.rpc.clone(),
             self.fee_clients.clone(),
             self.payer.clone(),

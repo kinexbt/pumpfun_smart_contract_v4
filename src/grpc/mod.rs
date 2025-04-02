@@ -157,24 +157,24 @@ impl YellowstoneGrpc {
     //     transactions
     // }
 
-    pub fn get_subscribe_update_slot_request_filter(
-        &self,
-        account_include: Vec<String>,
-        account_exclude: Vec<String>,
-        account_required: Vec<String>,
-    ) -> TransactionsFilterMap {
-        let mut transactions = HashMap::new();
-        transactions.insert(
-            "client".to_string(),
-            SubscribeUpdateSlot {
-                slot: 0,
-                parent: None,
-                status: None,
-                dead_error: None,
-            },
-        );
-        transactions
-    }
+    // pub fn get_subscribe_update_slot_request_filter(
+    //     &self,
+    //     account_include: Vec<String>,
+    //     account_exclude: Vec<String>,
+    //     account_required: Vec<String>,
+    // ) -> TransactionsFilterMap {
+    //     let mut transactions = HashMap::new();
+    //     transactions.insert(
+    //         "client".to_string(),
+    //         SubscribeUpdateSlot {
+    //             slot: 0,
+    //             parent: None,
+    //             status: None,
+    //             dead_error: None,
+    //         },
+    //     );
+    //     transactions
+    // }
 
     async fn handle_stream_message(
         msg: SubscribeUpdate,
