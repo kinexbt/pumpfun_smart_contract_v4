@@ -2,254 +2,257 @@ pub mod accounts;
 pub mod constants;
 pub mod error;
 pub mod instruction;
-pub mod jito;
 pub mod grpc;
 pub mod common;
 pub mod ipfs;
 pub mod trade;
+pub mod jito;
+pub mod pumpfun;
 
 use std::sync::Arc;
 
-use anyhow::anyhow;
-use solana_client::rpc_client::RpcClient;
+use jito::{FeeClient, JitoClient, NextBlockClient, ZeroSlotClient};
+use rustls::crypto::{ring::default_provider, CryptoProvider};
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
-    signature::{Keypair, Signer, Signature},
+    signature::{Keypair, Signer},
 };
 
-use common::{logs_data::TradeInfo, logs_events::PumpfunEvent, logs_subscribe};
+use common::{logs_data::TradeInfo, logs_events::PumpfunEvent, logs_subscribe, Cluster, PriorityFee, SolanaRpcClient};
 use common::logs_subscribe::SubscriptionHandle;
 use ipfs::TokenMetadataIPFS;
 
-use crate::jito::JitoClient;
-use crate::trade::common::PriorityFee;
-
-#[derive(Clone)]
 pub struct PumpFun {
     pub payer: Arc<Keypair>,
-    pub rpc: Arc<RpcClient>,
-    pub jito_client: Arc<JitoClient>,
+    pub rpc: Arc<SolanaRpcClient>,
+    pub fee_clients: Vec<Arc<FeeClient>>,
     pub priority_fee: PriorityFee,
+    pub cluster: Cluster,
+}
+
+impl Clone for PumpFun {
+    fn clone(&self) -> Self {
+        Self {
+            payer: self.payer.clone(),
+            rpc: self.rpc.clone(),
+            fee_clients: self.fee_clients.clone(),
+            priority_fee: self.priority_fee.clone(),
+            cluster: self.cluster.clone(),
+        }
+    }
 }
 
 impl PumpFun {
     #[inline]
-    pub fn new(
+    pub async fn new(
         payer: Arc<Keypair>,
-        rpc_url: String,
-        jito_url: String,
-        commitment: CommitmentConfig,
-        priority_fee: PriorityFee,
+        cluster: &Cluster,
     ) -> Self {
-        let rpc = Arc::new(RpcClient::new_with_commitment(
-            rpc_url,
-            commitment
-        ));   
+        if CryptoProvider::get_default().is_none() {
+            let _ = default_provider()
+                .install_default()
+                .map_err(|e| anyhow::anyhow!("Failed to install crypto provider: {:?}", e));
+        }
 
-        let jito_client = Arc::new(JitoClient::new(&jito_url, None));
+        let rpc = SolanaRpcClient::new_with_commitment(
+            cluster.clone().rpc_url,
+            cluster.clone().commitment
+        );   
+
+        let mut fee_clients: Vec<Arc<FeeClient>> = vec![];
+        if cluster.clone().use_jito {
+            let jito_client = JitoClient::new(
+                cluster.clone().rpc_url, 
+                cluster.clone().block_engine_url
+            ).await.expect("Failed to create Jito client");
+
+            fee_clients.push(Arc::new(jito_client));
+        }
+
+        if cluster.clone().use_zeroslot {
+            let zeroslot_client = ZeroSlotClient::new(
+                cluster.clone().rpc_url, 
+                cluster.clone().zeroslot_url,
+                cluster.clone().zeroslot_auth_token
+            );
+
+            fee_clients.push(Arc::new(zeroslot_client));
+        }
+
+        if cluster.clone().use_nextblock {
+            let nextblock_client = NextBlockClient::new(
+                cluster.clone().rpc_url,
+                cluster.clone().nextblock_url,
+                cluster.clone().nextblock_auth_token
+            );
+
+            fee_clients.push(Arc::new(nextblock_client));
+        }
 
         Self {
             payer,
-            rpc,
-            jito_client,
-            priority_fee,
+            rpc: Arc::new(rpc),
+            fee_clients,
+            priority_fee: cluster.clone().priority_fee,
+            cluster: cluster.clone(),
         }
     }
 
     /// Create a new token
     pub async fn create(
         &self,
-        mint: &Keypair,
+        mint: Keypair,
         ipfs: TokenMetadataIPFS,
-    ) -> Result<Signature, anyhow::Error> {
-        trade::create::create(
-            &self.rpc,
-            &self.payer,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::create::create(
+            self.rpc.clone(),
+            self.payer.clone(),
             mint,
             ipfs,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await 
     }
 
     pub async fn create_and_buy(
         &self,
-        mint: &Keypair,
+        mint: Keypair,
         ipfs: TokenMetadataIPFS,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-    ) -> Result<Signature, anyhow::Error> {
-        trade::create::create_and_buy(
-            &self.rpc,
-            &self.payer,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::create::create_and_buy(
+            self.rpc.clone(),
+            self.payer.clone(),
             mint,
             ipfs,
             amount_sol,
             slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
 
-    pub async fn create_and_buy_list_with_jito(
+    pub async fn create_and_buy_with_tip(
         &self,
-        payers: Vec<&Keypair>,
-        mint: &Keypair,
-        ipfs: TokenMetadataIPFS,
-        amount_sols: Vec<u64>,
-        slippage_basis_points: Option<u64>,
-    ) -> Result<String, anyhow::Error> { 
-        trade::create::create_and_buy_list_with_jito(
-            &self.rpc,
-            &self.jito_client,
-            payers,
-            mint,
-            ipfs,
-            amount_sols,
-            slippage_basis_points,
-            self.priority_fee,
-        ).await
-    }
-
-    pub async fn create_and_buy_with_jito(
-        &self,
-        payer: &Keypair,
-        mint: &Keypair,
+        payer: Arc<Keypair>, 
+        mint: Keypair,
         ipfs: TokenMetadataIPFS,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-    ) -> Result<String, anyhow::Error> { 
-        trade::create::create_and_buy_with_jito(
-            &self.rpc,
-            &self.jito_client,
+    ) -> Result<(), anyhow::Error> { 
+        pumpfun::create::create_and_buy_with_tip(
+            self.rpc.clone(),
+            self.fee_clients.clone(),
             payer,
             mint,
             ipfs,
             amount_sol,
             slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
+    
     /// Buy tokens
     pub async fn buy(
         &self,
-        mint: &Pubkey,
+        mint: Pubkey,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-    ) -> Result<Signature, anyhow::Error> {
-        trade::buy::buy(
-            &self.rpc,
-            &self.payer,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::buy::buy(
+            self.rpc.clone(),
+            self.payer.clone(),
             mint,
             amount_sol,
             slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
 
     /// Buy tokens using Jito
-    pub async fn buy_with_jito(
+    pub async fn buy_with_tip(
         &self,
-        mint: &Pubkey,
+        mint: Pubkey,
         amount_sol: u64,
         slippage_basis_points: Option<u64>,
-    ) -> Result<String, anyhow::Error> {
-        trade::buy::buy_with_jito(
-            &self.rpc,
-            &self.jito_client,
-            &self.payer,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::buy::buy_with_tip(
+            self.rpc.clone(),
+            self.fee_clients.clone(),
+            self.payer.clone(),
             mint,
             amount_sol,
             slippage_basis_points,
-            self.priority_fee,
-        ).await
-    }
-
-    pub async fn buy_list_with_jito(
-        &self,
-        payers: Vec<&Keypair>,
-        mint: &Pubkey,
-        amount_sols: Vec<u64>,
-        slippage_basis_points: Option<u64>,
-    ) -> Result<String, anyhow::Error> {
-        trade::buy::buy_list_with_jito(
-            &self.rpc,
-            &self.jito_client,
-            payers,
-            mint,
-            amount_sols,
-            slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
 
     /// Sell tokens
     pub async fn sell(
         &self,
-        mint: &Pubkey,
+        mint: Pubkey,
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
-    ) -> Result<Signature, anyhow::Error> {
-        trade::sell::sell(
-            &self.rpc,
-            &self.payer,
-            mint,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::sell::sell(
+            self.rpc.clone(),
+            self.payer.clone(),
+            mint.clone(),
             amount_token,
             slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
 
     /// Sell tokens by percentage
     pub async fn sell_by_percent(
         &self,
-        mint: &Pubkey,
+        mint: Pubkey,
         percent: u64,
         slippage_basis_points: Option<u64>,
-    ) -> Result<Signature, anyhow::Error> {
-        trade::sell::sell_by_percent(
-            &self.rpc,
-            &self.payer,
-            mint,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::sell::sell_by_percent(
+            self.rpc.clone(),
+            self.payer.clone(),
+            mint.clone(),
             percent,
             slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
 
     pub async fn sell_by_percent_with_jito(
         &self,
-        mint: &Pubkey,
+        mint: Pubkey,
         percent: u64,
         slippage_basis_points: Option<u64>,
-    ) -> Result<String, anyhow::Error> {
-        trade::sell::sell_by_percent_with_jito(
-            &self.rpc,
-            &self.payer,
-            &self.jito_client,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::sell::sell_by_percent_with_jito(
+            self.rpc.clone(),
+            self.fee_clients.clone(),
+            self.payer.clone(),
             mint,
             percent,
             slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
 
     /// Sell tokens using Jito
     pub async fn sell_with_jito(
         &self,
-        mint: &Pubkey,
+        mint: Pubkey,
         amount_token: Option<u64>,
         slippage_basis_points: Option<u64>,
-    ) -> Result<String, anyhow::Error> {
-        let jito_client = self.jito_client.as_ref();
-
-        trade::sell::sell_with_jito(
-            &self.rpc,
-            &self.payer,
-            jito_client,
+    ) -> Result<(), anyhow::Error> {
+        pumpfun::sell::sell_with_jito(
+            self.rpc.clone(),
+            self.fee_clients.clone(),
+            self.payer.clone(),
             mint,
             amount_token,
             slippage_basis_points,
-            self.priority_fee,
+            self.priority_fee.clone(),
         ).await
     }
 
@@ -273,23 +276,24 @@ impl PumpFun {
     }
 
     #[inline]
-    pub fn get_sol_balance(&self, payer: &Pubkey) -> Result<u64, anyhow::Error> {
-        trade::common::get_sol_balance(&self.rpc, payer)
+    pub async fn get_sol_balance(&self, payer: &Pubkey) -> Result<u64, anyhow::Error> {
+        pumpfun::common::get_sol_balance(&self.rpc, payer).await
     }
 
     #[inline]
-    pub fn get_payer_sol_balance(&self) -> Result<u64, anyhow::Error> {
-        trade::common::get_sol_balance(&self.rpc, &self.payer.pubkey())
+    pub async fn get_payer_sol_balance(&self) -> Result<u64, anyhow::Error> {
+        pumpfun::common::get_sol_balance(&self.rpc, &self.payer.pubkey()).await
     }
 
     #[inline]
-    pub fn get_token_balance(&self, payer: &Pubkey, mint: &Pubkey) -> Result<u64, anyhow::Error> {
-        trade::common::get_token_balance(&self.rpc, payer, mint)
+    pub async fn get_token_balance(&self, payer: &Pubkey, mint: &Pubkey) -> Result<u64, anyhow::Error> {
+        println!("get_token_balance payer: {}, mint: {}, cluster: {}", payer, mint, self.cluster.rpc_url);
+        pumpfun::common::get_token_balance(&self.rpc, payer, mint).await
     }
 
     #[inline]
-    pub fn get_payer_token_balance(&self, mint: &Pubkey) -> Result<u64, anyhow::Error> {
-        trade::common::get_token_balance(&self.rpc, &self.payer.pubkey(), mint)
+    pub async fn get_payer_token_balance(&self, mint: &Pubkey) -> Result<u64, anyhow::Error> {
+        pumpfun::common::get_token_balance(&self.rpc, &self.payer.pubkey(), mint).await
     }
 
     #[inline]
@@ -304,16 +308,16 @@ impl PumpFun {
 
     #[inline]
     pub fn get_token_price(&self,virtual_sol_reserves: u64, virtual_token_reserves: u64) -> f64 {
-        trade::common::get_token_price(virtual_sol_reserves, virtual_token_reserves)
+        pumpfun::common::get_token_price(virtual_sol_reserves, virtual_token_reserves)
     }
 
     #[inline]
     pub fn get_buy_price(&self, amount: u64, trade_info: &TradeInfo) -> u64 {
-        trade::common::get_buy_price(amount, trade_info)
+        pumpfun::common::get_buy_price(amount, trade_info)
     }
 
     #[inline]
     pub async fn transfer_sol(&self, payer: &Keypair, receive_wallet: &Pubkey, amount: u64) -> Result<(), anyhow::Error> {
-        trade::common::transfer_sol(&self.rpc, payer, receive_wallet, amount).await
+        pumpfun::common::transfer_sol(&self.rpc, payer, receive_wallet, amount).await
     }
 }

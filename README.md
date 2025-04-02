@@ -16,7 +16,7 @@ A comprehensive Rust SDK for seamless interaction with the PumpFun Solana progra
 
 ### logs subscription for token create and trade  transaction
 ```rust
-use mai3_pumpfun_sdk::common::{
+use pumpfun_sdk::common::{
     logs_events::DexEvent,
     logs_subscribe::{tokens_subscription, stop_subscription}
 };
@@ -72,7 +72,7 @@ use solana_sdk::{
     signer::Signer,
 };
 
-use mai3_pumpfun_sdk::{accounts::BondingCurveAccount, utils::CreateTokenMetadata, PriorityFee, PumpFun};
+use pumpfun_sdk::{accounts::BondingCurveAccount, utils::CreateTokenMetadata, PriorityFee, PumpFun};
 
 // Create a new PumpFun client
 let payer: Keypair = Keypair::new();

@@ -8,6 +8,7 @@ pub const PROGRAM_DATA: &str = "Program data: ";
 #[derive(Debug)]
 pub enum PumpfunEvent {
     NewToken(CreateTokenInfo),
+    NewDevTrade(TradeInfo),
     NewUserTrade(TradeInfo),
     NewBotTrade(TradeInfo),
     Error(String),

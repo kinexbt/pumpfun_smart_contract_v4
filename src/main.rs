@@ -1,4 +1,4 @@
-use mai3_pumpfun_sdk::common::{
+use pumpfun_sdk::common::{
     logs_events::PumpfunEvent,
     logs_subscribe::{tokens_subscription, stop_subscription}
 };
@@ -16,6 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Define callback function
     let callback = |event: PumpfunEvent| {
         match event {
+            PumpfunEvent::NewDevTrade(trade_info) => {
+                println!("Received new dev trade event: {:?}", trade_info);
+            },
             PumpfunEvent::NewToken(token_info) => {
                 println!("Received new token event: {:?}", token_info);
             },

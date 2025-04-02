@@ -13,6 +13,7 @@ pub enum DexInstruction {
 
 #[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct CreateTokenInfo {
+    pub slot: u64,
     pub name: String,
     pub symbol: String,
     pub uri: String,
@@ -23,6 +24,7 @@ pub struct CreateTokenInfo {
 
 #[derive(Clone, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct TradeInfo {
+    pub slot: u64,
     pub mint: Pubkey,
     pub sol_amount: u64,
     pub token_amount: u64,

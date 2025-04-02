@@ -25,9 +25,9 @@
 
 use solana_sdk::pubkey::Pubkey;
 use borsh::{BorshDeserialize, BorshSerialize};
-
+use serde::{Serialize, Deserialize};
 /// Represents the global configuration account for token pricing and fees
-#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalAccount {
     /// Unique identifier for the global account
     pub discriminator: u64,

@@ -1,45 +1,24 @@
 use anyhow::anyhow;
-use serde::Deserialize;
+use spl_token::state::Account;
 use tokio::sync::RwLock;
 use std::{collections::HashMap, sync::Arc};
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction, instruction::Instruction, native_token::sol_to_lamports, pubkey::Pubkey, signature::Keypair, signer::Signer, system_instruction, transaction::Transaction
+    commitment_config::CommitmentConfig, compute_budget::ComputeBudgetInstruction, instruction::Instruction, program_pack::Pack, pubkey::Pubkey, signature::Keypair, signer::Signer, system_instruction, transaction::Transaction
 };
 use spl_associated_token_account::get_associated_token_address;
-use crate::{accounts, common::logs_data::TradeInfo, constants::{self, trade::{DEFAULT_BUY_JITO_FEE, DEFAULT_COMPUTE_UNIT_LIMIT, DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SELL_JITO_FEE, DEFAULT_SLIPPAGE}}};
+use crate::{accounts, common::{logs_data::TradeInfo, PriorityFee, SolanaRpcClient}, constants::{self, trade::DEFAULT_SLIPPAGE}};
 use borsh::BorshDeserialize;
 
 lazy_static::lazy_static! {
     static ref ACCOUNT_CACHE: RwLock<HashMap<Pubkey, Arc<accounts::GlobalAccount>>> = RwLock::new(HashMap::new());
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
-
-pub struct PriorityFee {
-    pub unit_limit: u32,
-    pub unit_price: u64,
-    pub buy_jito_fee: f64,
-    pub sell_jito_fee: f64,
-}
-
-impl Default for PriorityFee {
-    fn default() -> Self {
-        Self { 
-            unit_limit: DEFAULT_COMPUTE_UNIT_LIMIT, 
-            unit_price: DEFAULT_COMPUTE_UNIT_PRICE, 
-            buy_jito_fee: DEFAULT_BUY_JITO_FEE, 
-            sell_jito_fee: DEFAULT_SELL_JITO_FEE 
-        }
-    }
-}
-
-pub async fn transfer_sol(rpc: &RpcClient, payer: &Keypair, receive_wallet: &Pubkey, amount: u64) -> Result<(), anyhow::Error> {
+pub async fn transfer_sol(rpc: &SolanaRpcClient, payer: &Keypair, receive_wallet: &Pubkey, amount: u64) -> Result<(), anyhow::Error> {
     if amount == 0 {
-        return Err(anyhow!("Amount cannot be zero"));
+        return Err(anyhow!("transfer_sol: Amount cannot be zero"));
     }
 
-    let balance = get_sol_balance(rpc, &payer.pubkey())?;
+    let balance = get_sol_balance(rpc, &payer.pubkey()).await?;
     if balance < amount {
         return Err(anyhow!("Insufficient balance"));
     }
@@ -50,7 +29,7 @@ pub async fn transfer_sol(rpc: &RpcClient, payer: &Keypair, receive_wallet: &Pub
         amount,
     );
 
-    let recent_blockhash = rpc.get_latest_blockhash()?;
+    let recent_blockhash = rpc.get_latest_blockhash().await?;
 
     let transaction = Transaction::new_signed_with_payer(
         &[transfer_instruction],
@@ -59,7 +38,7 @@ pub async fn transfer_sol(rpc: &RpcClient, payer: &Keypair, receive_wallet: &Pub
         recent_blockhash,
     );  
 
-    rpc.send_and_confirm_transaction(&transaction)?;
+    rpc.send_and_confirm_transaction(&transaction).await?;
 
     Ok(())
 }
@@ -73,19 +52,46 @@ pub fn create_priority_fee_instructions(priority_fee: PriorityFee) -> Vec<Instru
     instructions
 }
 
-pub fn get_token_balance(rpc: &RpcClient, account: &Pubkey, mint: &Pubkey) -> Result<u64, anyhow::Error> {
-    let ata = get_associated_token_address(account, mint);
-    if rpc.get_account(&ata).is_err() {
-        return Ok(0);
-    }
+// #[inline]
+pub async fn get_token_balance(rpc: &SolanaRpcClient, payer: &Pubkey, mint: &Pubkey) -> Result<u64, anyhow::Error> {
+    let ata = get_associated_token_address(payer, mint);
+    // let account_data = rpc.get_account_data(&ata).await?;
+    // let token_account = Account::unpack(&account_data.as_slice())?;
 
-    let balance = rpc.get_token_account_balance(&ata)?;
-    balance.amount.parse::<u64>()
-        .map_err(|_| anyhow!("Failed to parse token balance"))
+    // Ok(token_account.amount)
+
+    // println!("get_token_balance ata: {}", ata);
+    let balance = rpc.get_token_account_balance(&ata).await?;
+    let balance_u64 = balance.amount.parse::<u64>()
+        .map_err(|_| anyhow!("Failed to parse token balance"))?;
+    Ok(balance_u64)
 }
 
-pub fn get_sol_balance(rpc: &RpcClient, account: &Pubkey) -> Result<u64, anyhow::Error> {
-    rpc.get_balance(account).map_err(|_| anyhow!("Failed to get SOL balance"))
+#[inline]
+pub async fn get_token_balance_and_ata(rpc: &SolanaRpcClient, payer: &Keypair, mint: &Pubkey) -> Result<(u64, Pubkey), anyhow::Error> {
+    let ata = get_associated_token_address(&payer.pubkey(), mint);
+    // let account_data = rpc.get_account_data(&ata).await?;
+    // let token_account = Account::unpack(&account_data)?;
+
+    // Ok((token_account.amount, ata))
+
+    let balance = rpc.get_token_account_balance(&ata).await?;
+    let balance_u64 = balance.amount.parse::<u64>()
+        .map_err(|_| anyhow!("Failed to parse token balance"))?;
+    
+    if balance_u64 == 0 {
+        return Err(anyhow!("Balance is 0"));
+    }
+
+    Ok((balance_u64, ata))
+}
+
+#[inline]
+pub async fn get_sol_balance(rpc: &SolanaRpcClient, account: &Pubkey) -> Result<u64, anyhow::Error> {
+    println!("get_sol_balance account: {}", account);
+    let balance = rpc.get_balance(account).await?;
+    println!("get_sol_balance balance: {}", balance);
+    Ok(balance)
 }
 
 #[inline]
@@ -125,21 +131,17 @@ pub fn get_metadata_pda(mint: &Pubkey) -> Pubkey {
 }
 
 #[inline]
-pub async fn get_global_account(rpc: &RpcClient) -> Result<Arc<accounts::GlobalAccount>, anyhow::Error> {
+pub async fn get_global_account(rpc: &SolanaRpcClient) -> Result<Arc<accounts::GlobalAccount>, anyhow::Error> {
     let global = get_global_pda();
-    
-    // Try cache first
     if let Some(account) = ACCOUNT_CACHE.read().await.get(&global) {
         return Ok(account.clone());
     }
 
-    // Cache miss, fetch from RPC
-    let account = rpc.get_account(&global)?;
-    let global_account = Arc::new(accounts::GlobalAccount::try_from_slice(&account.data)?);
-    
-    // Update cache
+    let account = rpc.get_account(&global).await?;
+    let global_account = bincode::deserialize::<accounts::GlobalAccount>(&account.data)?;
+    let global_account = Arc::new(global_account);
+
     ACCOUNT_CACHE.write().await.insert(global, global_account.clone());
-    
     Ok(global_account)
 }
 
@@ -151,17 +153,17 @@ pub async fn get_initial_buy_price(global_account: &Arc<accounts::GlobalAccount>
 
 #[inline]
 pub async fn get_bonding_curve_account(
-    rpc: &RpcClient,
+    rpc: &SolanaRpcClient,
     mint: &Pubkey,
 ) -> Result<Arc<accounts::BondingCurveAccount>, anyhow::Error> {
     let bonding_curve_pda = get_bonding_curve_pda(mint)
         .ok_or(anyhow!("Bonding curve not found"))?;
-    
-    if rpc.get_account(&bonding_curve_pda).is_err() {
+
+    let account = rpc.get_account(&bonding_curve_pda).await?;
+    if account.data.is_empty() {
         return Err(anyhow!("Bonding curve not found"));
     }
 
-    let account = rpc.get_account(&bonding_curve_pda)?;
     let bonding_curve = Arc::new(accounts::BondingCurveAccount::try_from_slice(&account.data)?);
     Ok(bonding_curve)
 }
@@ -172,12 +174,14 @@ pub fn get_buy_amount_with_slippage(amount_sol: u64, slippage_basis_points: Opti
     amount_sol + (amount_sol * slippage / 10000)
 }
 
+#[inline]
 pub fn get_token_price(virtual_sol_reserves: u64, virtual_token_reserves: u64) -> f64 {
     let v_sol = virtual_sol_reserves as f64 / 100_000_000.0;
     let v_tokens = virtual_token_reserves as f64 / 100_000.0;
     v_sol / v_tokens
 }
 
+#[inline]
 pub fn get_buy_price(amount: u64, trade_info: &TradeInfo) -> u64 {
     if amount == 0 {
         return 0;

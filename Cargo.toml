@@ -1,5 +1,5 @@
 [package]
-name = "mai3-pumpfun-sdk"
+name = "pumpfun-sdk"
 version = "2.4.3"
 edition = "2021"
 authors = ["William <byteblock6@gmail.com>"]
@@ -13,15 +13,23 @@ readme = "README.md"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-solana-sdk = "2.1.13"
-solana-client = "2.1.13"
-solana-transaction-status = "2.1.13"
-solana-rpc-client = "2.1.13"
-solana-rpc-client-api = "2.1.13"
-solana-program = "2.1.13"
-spl-token = "7.0.0"
+jito-protos = { path = "./jito_protos" }
+
+solana-sdk = "2.1.16"
+solana-client = "2.1.16"
+solana-program = "2.1.16" 
+solana-rpc-client = "2.1.16"
+solana-rpc-client-api = "2.1.16"
+solana-transaction-status = "2.1.16"
+solana-account-decoder = "2.1.16"
+solana-hash = "2.1.16"
+solana-security-txt = "1.1.1"
+
+spl-token = "8.0.0"
+spl-token-2022 = { version = "8.0.0", features = ["no-entrypoint"] }
 spl-associated-token-account = "6.0.0"
 mpl-token-metadata = "5.1.0"
+
 borsh = { version = "1.5.3", features = ["derive"] }
 isahc = "1.7.2"
 serde = { version = "1.0.215", features = ["derive"] }
@@ -33,12 +41,15 @@ bs58 = "0.5.1"
 rand = "0.9.0"
 bincode = "1.3.3"
 anyhow = "1.0.90"
+yellowstone-grpc-client = {  version = "6.0.0" }
+yellowstone-grpc-proto = {  version = "6.0.0" }
 reqwest = { version = "0.12.12", features = ["json", "multipart"] }
-tonic = { version = "0.12.3", features = ["tls", "tls-webpki-roots", "tls-roots"] }
 tokio = { version = "1.42.0" , features = ["full", "rt-multi-thread"]}
-yellowstone-grpc-client = {  version = "5.0.0" }
-yellowstone-grpc-proto = {  version = "5.0.0" }
-rustls = { version = "0.23.20", features = ["ring"] }
+tonic = { version = "0.12.3", features = ["tls", "tls-roots", "tls-webpki-roots"] }
+rustls = { version = "0.23.23", features = ["ring"] }
+rustls-native-certs = "0.8.1"
+tokio-rustls = "0.26.1"
+
 dotenvy = "0.15.7"
 pretty_env_logger = "0.5.0"
 log = "0.4.22"
@@ -49,5 +60,31 @@ thiserror = "2.0.11"
 async-trait = "0.1.86"
 lazy_static = "1.5.0"
 once_cell = "1.20.3"
+prost = "0.13.5"
+prost-types = "0.13.5"
+arrform = { git = "https://github.com/raydium-io/arrform" }
+num_enum = "0.7.3"
+num-derive = "0.4.2"
+num-traits = "0.2.19"
+uint = "0.10.0"
+clap = { version = "4.5.31", features = ["derive"] }
+
+hex = "0.4.3"
+bytemuck = { version = "1.4.0" }
+safe-transmute = "0.11.0"
+enumflags2 = "0.6.4"
+static_assertions = "1.1.0"
+demand = "1.2.2"
+arrayref = "0.3.6"
+default-env = "0.1.1"
+
+borsh-derive = "1.5.5"
+axum = { version = "0.8.1", features = ["macros"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tokio-tungstenite = { version = "0.26.1", features = ["native-tls"] }
+indicatif = "0.17.11"
+toml = "0.8.20"
+
+
 
 
