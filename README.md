@@ -25,8 +25,7 @@ pumpfun-sdk = { path = "./pumpfun-sdk", version = "2.4.3" }
 
 ### logs subscription for token create and trade  transaction
 ```rust
-use std::sync::{Arc, OnceLock};
-use pumpfun_sdk::grpc::YellowstoneGrpc;
+use pumpfun_sdk::{common::logs_events::PumpfunEvent, grpc::YellowstoneGrpc};
 
 // create grpc client
 let grpc_url = "http://127.0.0.1:10000";
@@ -59,30 +58,80 @@ client.subscribe_pumpfun(callback, Some(payer_keypair.pubkey())).await?;
 
 ```
 
-### pumpfun Create, Buy, Sell
+### Init Pumpfun instance for configs
 ```rust
-use std::sync::{Arc, OnceLock};
-use solana_sdk::{
-    signature::Keypair,
-    commitment_config::CommitmentConfig,
-};
-use pumpfun_sdk::PumpFun;
-use pumpfun_sdk::common::{Cluster, PriorityFee};
+use std::sync::Arc;
+use pumpfun_sdk::{common::{Cluster, PriorityFee}, PumpFun};
+use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair, signer::Signer};
 
-let payer = Keypair::from_base58_string(&settings.dex.payer.clone());
-let cluster = Cluster::new( 
-    rpc_url.clone(),
-    jito_url.clone(),
-    nextblock_url.clone(),
-    nextblock_auth_token.clone(),
-    zeroslot_url.clone(),
-    zeroslot_auth_token.clone(),
+let priority_fee = PriorityFee{
+    unit_limit: 72000,
+    unit_price: 1000000,
+    buy_tip_fee: 0.001,
+    sell_tip_fee: 0.0001,
+};
+
+let cluster = Cluster {
+    rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+    block_engine_url: "https://block-engine.example.com".to_string(),
+    nextblock_url: "https://nextblock.example.com".to_string(),
+    nextblock_auth_token: "nextblock_api_token".to_string(),
+    zeroslot_url: "https://zeroslot.example.com".to_string(),
+    zeroslot_auth_token: "zeroslot_api_token".to_string(),
+    use_jito: true,
+    use_nextblock: false,
+    use_zeroslot: false,
     priority_fee,
-    CommitmentConfig::processed(),
-    use_jito,
-    use_nextblock,
-    use_zeroslot,
-);
+    commitment: CommitmentConfig::processed(),
+};
+
+// create pumpfun instance
+let payer = Keypair::from_base58_string("your private key");
+let pumpfun = PumpFun::new(
+    Arc::new(payer), 
+    &cluster,
+).await;
+```
+
+### pumpfun Create Token
+```rust
+use std::sync::Arc;
+use pumpfun_sdk::{ipfs, PumpFun};
+use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
+
+// create pumpfun instance
+let pumpfun = PumpFun::new(Arc::new(payer), &cluster).await;
+
+// Mint keypair
+let mint_pubkey: Keypair = Keypair::new();
+
+let metadata = ipfs::CreateTokenMetadata {
+    name: "Doge".to_string(),
+    symbol: "DOGE".to_string(),
+    description: "Dogecoin".to_string(),
+    file: "/Users/joseph/Desktop/doge.png".to_string(),
+    twitter: None,
+    telegram: None,
+    website: None,
+    metadata_uri: None,
+};
+
+// ipfs_api_key for https://api.pinata.cloud 
+let ipfs_metadata = ipfs::create_token_metadata(metadata, &"".to_string()).await?;
+println!("ipfs_metadata: {:?}", ipfs_metadata);
+
+pumpfun.create_and_buy(
+    mint, 
+    ipfs_metadata, 
+    sol_to_lamports(0.1), 
+    None,
+).await?;
+```
+
+### pumpfun Buy token
+```rust
+use pumpfun_sdk::PumpFun;
+use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
 
 // create pumpfun instance
 let pumpfun = PumpFun::new(Arc::new(payer), &cluster).await;
@@ -92,6 +141,19 @@ let mint_pubkey: Keypair = Keypair::new();
 
 // buy token with tip
 pumpfun.buy_with_tip(mint_pubkey, 10000, None).await?;
+
+```
+
+### pumpfun Sell token
+```rust
+use pumpfun_sdk::PumpFun;
+use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
+
+// create pumpfun instance
+let pumpfun = PumpFun::new(Arc::new(payer), &cluster).await;
+
+// sell token with tip
+pumpfun.sell_with_tip(mint_pubkey, 100000, None).await?;
 
 // sell token by percent with tip
 pumpfun.sell_by_percent_with_tip(mint_pubkey, 100, None).await?;
