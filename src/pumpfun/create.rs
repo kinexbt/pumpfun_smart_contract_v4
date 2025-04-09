@@ -127,12 +127,12 @@ pub async fn build_create_and_buy_transaction(
     slippage_basis_points: Option<u64>,
     priority_fee: PriorityFee,
 ) -> Result<Transaction, anyhow::Error> {
-    let mut instructions = vec![
+    let mut instructions: Vec<Instruction> = vec![
         ComputeBudgetInstruction::set_compute_unit_price(priority_fee.unit_price),
         ComputeBudgetInstruction::set_compute_unit_limit(priority_fee.unit_limit),
     ];
 
-    let build_instructions = build_create_and_buy_instructions(rpc.clone(), payer.clone(), mint.clone(), ipfs, amount_sol, slippage_basis_points, priority_fee.clone()).await?;
+    let build_instructions: Vec<Instruction> = build_create_and_buy_instructions(rpc.clone(), payer.clone(), mint.clone(), ipfs, amount_sol, slippage_basis_points, priority_fee.clone()).await?;
     instructions.extend(build_instructions);
 
     let recent_blockhash = rpc.get_latest_blockhash().await?;
@@ -154,7 +154,7 @@ pub async fn build_create_and_buy_transaction_with_tip(
     priority_fee: PriorityFee,  
     build_instructions: Vec<Instruction>,
 ) -> Result<VersionedTransaction, anyhow::Error> {
-    let mut instructions = vec![
+    let mut instructions: Vec<Instruction> = vec![
         ComputeBudgetInstruction::set_compute_unit_price(priority_fee.unit_price),
         ComputeBudgetInstruction::set_compute_unit_limit(priority_fee.unit_limit),
         system_instruction::transfer(
@@ -175,98 +175,6 @@ pub async fn build_create_and_buy_transaction_with_tip(
     Ok(transaction)
 }
 
-// pub async fn build_create_and_buy_instructions(
-//     rpc: Arc<SolanaRpcClient>,
-//     payer: Arc<Keypair>,
-//     mint: Arc<Keypair>,
-//     ipfs: TokenMetadataIPFS,
-//     amount_sol: u64,
-//     slippage_basis_points: Option<u64>,
-//     priority_fee: PriorityFee,
-// ) -> Result<Vec<Instruction>, anyhow::Error> {
-//     if amount_sol == 0 {
-//         return Err(anyhow!("Amount cannot be zero"));
-//     }
-
-//     let rpc = rpc.as_ref();
-//     let global_account = get_global_account(rpc).await?;
-//     let buy_amount = global_account.get_initial_buy_price(amount_sol);
-//     let buy_amount_with_slippage =
-//         get_buy_amount_with_slippage(amount_sol, slippage_basis_points);
-
-//     let mut instructions = vec![
-//         ComputeBudgetInstruction::set_compute_unit_limit(1_400_000),
-//         ComputeBudgetInstruction::set_compute_unit_price(0),
-//     ];
-
-//     instructions.push(instruction::create(
-//         payer.as_ref(),
-//         mint.as_ref(),
-//         instruction::Create {
-//             _name: ipfs.metadata.name,
-//             _symbol: ipfs.metadata.symbol,
-//             _uri: ipfs.metadata_uri,
-//         },
-//     ));
-
-//     instructions.push(create_associated_token_account(
-//         &payer.pubkey(),
-//         &payer.pubkey(),
-//         &mint.pubkey(),
-//         &constants::accounts::TOKEN_PROGRAM,
-//     ));
-    
-
-//     instructions.push(instruction::buy(
-//         payer.as_ref(),
-//         &mint.pubkey(),
-//         &global_account.fee_recipient,
-//         instruction::Buy {
-//             _amount: buy_amount,
-//             _max_sol_cost: buy_amount_with_slippage,
-//         },
-//     ));
-
-//     let commitment_config = CommitmentConfig::confirmed();
-//     let recent_blockhash = rpc.get_latest_blockhash_with_commitment(commitment_config).await?.0;
-
-//     let simulate_tx = Transaction::new_signed_with_payer(
-//         &instructions,
-//         Some(&payer.pubkey()),
-//         &[payer.as_ref(), mint.as_ref()],
-//         recent_blockhash,
-//     );
-
-//     let config = RpcSimulateTransactionConfig {
-//         sig_verify: true,
-//         commitment: Some(commitment_config),
-//         ..RpcSimulateTransactionConfig::default()
-//     };
-    
-//     let result = rpc.simulate_transaction_with_config(&simulate_tx, config).await?.value;
-
-//     if result.logs.as_ref().map_or(true, |logs| logs.is_empty()) {
-//         return Err(anyhow!("Simulation failed: {:?}", result.err));
-//     }
-
-//     let result_cu = result.units_consumed.ok_or_else(|| anyhow!("No compute units consumed"))?;
-//     let fees = rpc.get_recent_prioritization_fees(&[]).await?;
-//     let average_fees = if fees.is_empty() {
-//         priority_fee.unit_price
-//     } else {
-//         fees.iter()
-//             .map(|fee| fee.prioritization_fee)
-//             .sum::<u64>() / fees.len() as u64
-//     };
-
-//     let unit_price = if average_fees == 0 { priority_fee.unit_price } else { average_fees };
-
-//     instructions[0] = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
-//     instructions[1] = ComputeBudgetInstruction::set_compute_unit_price(unit_price);
-
-//     Ok(instructions)
-// }
-
 pub async fn build_create_and_buy_instructions(
     rpc: Arc<SolanaRpcClient>,
     payer: Arc<Keypair>,
@@ -286,10 +194,7 @@ pub async fn build_create_and_buy_instructions(
     let buy_amount_with_slippage =
         get_buy_amount_with_slippage(amount_sol, slippage_basis_points);
 
-    let mut instructions = vec![
-        ComputeBudgetInstruction::set_compute_unit_price(priority_fee.unit_price),
-        ComputeBudgetInstruction::set_compute_unit_limit(priority_fee.unit_limit),
-    ];
+    let mut instructions = vec![];
 
     instructions.push(instruction::create(
         payer.as_ref(),
