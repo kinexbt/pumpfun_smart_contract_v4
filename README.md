@@ -58,7 +58,7 @@ client.subscribe_pumpfun(callback, Some(payer_keypair.pubkey())).await?;
 
 ```
 
-### Init Pumpfun instance for configs
+### Init pumpfun instance for configs
 ```rust
 use std::sync::Arc;
 use pumpfun_sdk::{common::{Cluster, PriorityFee}, PumpFun};
@@ -93,7 +93,7 @@ let pumpfun = PumpFun::new(
 ).await;
 ```
 
-### pumpfun Create Token
+### pumpfun create Token
 ```rust
 use std::sync::Arc;
 use pumpfun_sdk::{ipfs, PumpFun};
@@ -128,7 +128,7 @@ pumpfun.create_and_buy(
 ).await?;
 ```
 
-### pumpfun Buy token
+### pumpfun buy token
 ```rust
 use pumpfun_sdk::PumpFun;
 use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
@@ -144,7 +144,7 @@ pumpfun.buy_with_tip(mint_pubkey, 10000, None).await?;
 
 ```
 
-### pumpfun Sell token
+### pumpfun sell token
 ```rust
 use pumpfun_sdk::PumpFun;
 use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
