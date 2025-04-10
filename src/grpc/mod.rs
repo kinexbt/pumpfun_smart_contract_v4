@@ -2,10 +2,8 @@ use std::{collections::HashMap, fmt, time::Duration};
 
 use futures::{channel::mpsc, sink::Sink, Stream, StreamExt, SinkExt};
 use rustls::crypto::{ring::default_provider, CryptoProvider};
-use tonic::codec::CompressionEncoding;
 use tonic::{transport::channel::ClientTlsConfig, Status};
 use yellowstone_grpc_client::{GeyserGrpcClient, GeyserGrpcClientResult};
-use yellowstone_grpc_proto::geyser::SubscribeUpdateSlot;
 use yellowstone_grpc_proto::geyser::{
     CommitmentLevel, SubscribeRequest, SubscribeRequestFilterTransactions, SubscribeUpdate,
     SubscribeUpdateTransaction, subscribe_update::UpdateOneof, SubscribeRequestPing,
@@ -139,43 +137,6 @@ impl YellowstoneGrpc {
         transactions
     }
 
-    // pub fn get_subscribe_account_updater_request_filter(
-    //     &self,
-    //     account_include: Vec<String>,
-    //     account_exclude: Vec<String>,
-    //     account_required: Vec<String>,
-    // ) -> TransactionsFilterMap {
-    //     let mut transactions = HashMap::new();
-    //     transactions.insert(
-    //         "client".to_string(),
-    //         SubscribeUpdateAccount {
-    //             account: account_include,
-    //             slot: None,
-    //             is_startup: None,
-    //         },
-    //     );
-    //     transactions
-    // }
-
-    // pub fn get_subscribe_update_slot_request_filter(
-    //     &self,
-    //     account_include: Vec<String>,
-    //     account_exclude: Vec<String>,
-    //     account_required: Vec<String>,
-    // ) -> TransactionsFilterMap {
-    //     let mut transactions = HashMap::new();
-    //     transactions.insert(
-    //         "client".to_string(),
-    //         SubscribeUpdateSlot {
-    //             slot: 0,
-    //             parent: None,
-    //             status: None,
-    //             dead_error: None,
-    //         },
-    //     );
-    //     transactions
-    // }
-
     async fn handle_stream_message(
         msg: SubscribeUpdate,
         tx: &mut mpsc::Sender<TransactionPretty>,
@@ -203,20 +164,6 @@ impl YellowstoneGrpc {
         }
         Ok(())
     }
-
-    // pub async fn subscribe_account_updater<F>(&self, callback: F, bot_wallet: Option<Pubkey>) -> ClientResult<()> 
-    // where
-    //     F: Fn(PumpfunEvent) + Send + Sync + 'static,
-    // {
-    //     let addrs = vec![PUMP_PROGRAM_ID.to_string()];
-    //     let transactions = self.get_subscribe_request_filter(addrs, vec![], vec![]);
-    //     let (mut subscribe_tx, mut stream) = self.connect(transactions).await?
-    //     .map_err(|e| ClientError::Other(format!("Failed to subscribe: {:?}", e)))?;
-    //     let (mut tx, mut rx) = mpsc::channel::<TransactionPretty>(CHANNEL_SIZE);
-
-    //     let callback = Box::new(callback);
-        
-    // }
 
     pub async fn subscribe_pumpfun<F>(&self, callback: F, bot_wallet: Option<Pubkey>) -> ClientResult<()> 
     where

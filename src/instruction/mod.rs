@@ -38,11 +38,12 @@ pub struct Create {
     pub _name: String,
     pub _symbol: String,
     pub _uri: String,
+    pub _creator: Pubkey,
 }
 
 impl Create {
     pub fn data(&self) -> Vec<u8> {
-        let mut data = Vec::with_capacity(8 + 4 + self._name.len() + 4 + self._symbol.len() + 4 + self._uri.len());
+        let mut data = Vec::with_capacity(8 + 4 + self._name.len() + 4 + self._symbol.len() + 4 + self._uri.len() + 32);
 
         // 追加 discriminator
         data.extend_from_slice(&[24, 30, 200, 40, 5, 28, 7, 119]); // discriminator
@@ -58,6 +59,8 @@ impl Create {
         // 添加 uri 字符串长度和内容
         data.extend_from_slice(&(self._uri.len() as u32).to_le_bytes());  // 添加 uri 长度
         data.extend_from_slice(self._uri.as_bytes());  // 添加 uri 内容
+
+        data.extend_from_slice(&self._creator.to_bytes());
 
         data
     }
@@ -247,6 +250,7 @@ pub async fn build_create_and_buy_instructions(
             _name: ipfs.metadata.name.clone(),
             _symbol: ipfs.metadata.symbol.clone(),
             _uri: ipfs.metadata_uri.clone(),
+            _creator: payer.pubkey(),
         },
     ));
 

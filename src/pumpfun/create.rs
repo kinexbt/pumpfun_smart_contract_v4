@@ -37,6 +37,7 @@ pub async fn create(
             _name: ipfs.metadata.name,
             _symbol: ipfs.metadata.symbol,
             _uri: ipfs.metadata_uri,
+            _creator: payer.pubkey(),
         },
     ));
 
@@ -203,6 +204,7 @@ pub async fn build_create_and_buy_instructions(
             _name: ipfs.metadata.name.clone(),
             _symbol: ipfs.metadata.symbol.clone(),
             _uri: ipfs.metadata_uri.clone(),
+            _creator: payer.pubkey(),
         },
     ));
 

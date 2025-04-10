@@ -53,7 +53,6 @@ let callback = |event: PumpfunEvent| {
 };
 
 let payer_keypair = Keypair::from_base58_string("your private key");
-let client = GrpcClient::get_instance();
 client.subscribe_pumpfun(callback, Some(payer_keypair.pubkey())).await?;
 
 ```
@@ -65,7 +64,7 @@ use pumpfun_sdk::{common::{Cluster, PriorityFee}, PumpFun};
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair, signer::Signer};
 
 let priority_fee = PriorityFee{
-    unit_limit: 72000,
+    unit_limit: 190000,
     unit_price: 1000000,
     buy_tip_fee: 0.001,
     sell_tip_fee: 0.0001,
@@ -116,8 +115,9 @@ let metadata = ipfs::CreateTokenMetadata {
     metadata_uri: None,
 };
 
-// ipfs_api_key for https://api.pinata.cloud 
-let ipfs_metadata = ipfs::create_token_metadata(metadata, &"your ipfs_api_key".to_string()).await?;
+// ipfs jwt_token for https://pinata.cloud 
+let jwt_token = "your ipfs jwt_token";
+let ipfs_metadata = ipfs::create_token_metadata(metadata, &jwt_token).await?;
 println!("ipfs_metadata: {:?}", ipfs_metadata);
 
 pumpfun.create_and_buy(

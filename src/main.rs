@@ -75,8 +75,9 @@ async fn create_and_buy() -> Result<(), Box<dyn std::error::Error>> {
         metadata_uri: None,
     };
 
-    // ipfs_api_key for https://api.pinata.cloud 
-    let ipfs_metadata = ipfs::create_token_metadata(metadata, &"ipfs_api_key".to_string()).await?;
+    // ipfs jwt_token for https://pinata.cloud 
+    let jwt_token = "your ipfs jwt_token";
+    let ipfs_metadata = ipfs::create_token_metadata(metadata, &jwt_token).await?;
     println!("ipfs_metadata: {:?}", ipfs_metadata);
 
     let mint = Keypair::new();
