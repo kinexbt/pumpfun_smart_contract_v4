@@ -15,9 +15,9 @@ use reqwest::Client;
 
 pub async fn poll_transaction_confirmation(rpc: &SolanaRpcClient, txt_sig: Signature) -> Result<Signature> {
     // 15 second timeout
-    let timeout: Duration = Duration::from_secs(15);
+    let timeout: Duration = Duration::from_secs(5);
     // 5 second retry interval
-    let interval: Duration = Duration::from_secs(5);
+    let interval: Duration = Duration::from_millis(300);
     let start: Instant = Instant::now();
 
     loop {
