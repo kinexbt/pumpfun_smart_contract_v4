@@ -3,7 +3,7 @@ use std::sync::Arc;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair};
 use serde::Deserialize;
-use crate::{constants::trade::{DEFAULT_BUY_TIP_FEE, DEFAULT_COMPUTE_UNIT_LIMIT, DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SELL_TIP_FEE}, jito::FeeClient};
+use crate::{constants::trade::{DEFAULT_BUY_TIP_FEE, DEFAULT_COMPUTE_UNIT_LIMIT, DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SELL_TIP_FEE}, swqos::FeeClient};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FeeType {

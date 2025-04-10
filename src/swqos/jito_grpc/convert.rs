@@ -11,13 +11,11 @@ use solana_sdk::{
     transaction::VersionedTransaction,
 };
 
-use crate::{
-    packet::{
-        Meta as ProtoMeta, Packet as ProtoPacket, PacketBatch as ProtoPacketBatch,
-        PacketFlags as ProtoPacketFlags,
-    },
-    shared::Socket,
+use crate::swqos::jito_grpc::packet::{
+    Meta as ProtoMeta, Packet as ProtoPacket, PacketBatch as ProtoPacketBatch,
+    PacketFlags as ProtoPacketFlags,
 };
+use crate::swqos::jito_grpc::shared::Socket;
 
 /// Converts a Solana packet to a protobuf packet
 /// NOTE: the packet.data() function will filter packets marked for discard

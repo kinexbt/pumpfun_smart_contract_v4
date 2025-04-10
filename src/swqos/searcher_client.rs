@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use jito_protos::{
+use crate::swqos::jito_grpc::{
     bundle::{
         Bundle, BundleResult,
     },
@@ -18,12 +18,10 @@ use solana_sdk::{
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
-use tonic::{
-    codec::CompressionEncoding, transport::{self, Channel, Endpoint}, Status
-};
+use tonic::{transport::{self, Channel, Endpoint}, Status};
 use yellowstone_grpc_client::ClientTlsConfig;
 
-use crate::jito::common::poll_transaction_confirmation;
+use crate::swqos::common::poll_transaction_confirmation;
 use crate::common::SolanaRpcClient;
 
 #[derive(Debug, Error)]

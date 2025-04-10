@@ -11,7 +11,7 @@ use spl_associated_token_account::{
 
 use crate::{
     common::{PriorityFee, SolanaRpcClient}, constants, instruction, 
-    ipfs::TokenMetadataIPFS,  jito::FeeClient,
+    ipfs::TokenMetadataIPFS,  swqos::FeeClient,
     pumpfun::buy::build_buy_transaction_with_tip
 };
 

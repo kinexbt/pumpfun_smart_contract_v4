@@ -13,8 +13,6 @@ readme = "README.md"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-jito-protos = { path = "./jito_protos" }
-
 solana-sdk = "2.1.16"
 solana-client = "2.1.16"
 solana-program = "2.1.16" 
@@ -23,6 +21,7 @@ solana-rpc-client-api = "2.1.16"
 solana-transaction-status = "2.1.16"
 solana-account-decoder = "2.1.16"
 solana-hash = "2.1.16"
+solana-perf = "2.1.16"
 solana-security-txt = "1.1.1"
 
 spl-token = "8.0.0"
@@ -50,6 +49,7 @@ rustls = { version = "0.23.23", features = ["ring"] }
 rustls-native-certs = "0.8.1"
 tokio-rustls = "0.26.1"
 
+bytes = "1.4.0"
 dotenvy = "0.15.7"
 pretty_env_logger = "0.5.0"
 log = "0.4.22"

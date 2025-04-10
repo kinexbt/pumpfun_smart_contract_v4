@@ -5,12 +5,12 @@ pub mod instruction;
 pub mod grpc;
 pub mod common;
 pub mod ipfs;
-pub mod jito;
+pub mod swqos;
 pub mod pumpfun;
 
 use std::sync::Arc;
 
-use jito::{FeeClient, JitoClient, NextBlockClient, ZeroSlotClient};
+use swqos::{FeeClient, JitoClient, NextBlockClient, ZeroSlotClient};
 use rustls::crypto::{ring::default_provider, CryptoProvider};
 use solana_sdk::{
     commitment_config::CommitmentConfig,

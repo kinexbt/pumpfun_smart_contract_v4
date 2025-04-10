@@ -7,7 +7,7 @@ use spl_associated_token_account::instruction::create_associated_token_account;
 use tokio::task::JoinHandle;
 use std::{str::FromStr, time::Instant, sync::Arc};
 
-use crate::{common::{PriorityFee, SolanaRpcClient}, constants::{self, trade::DEFAULT_SLIPPAGE}, instruction, jito::FeeClient};
+use crate::{common::{PriorityFee, SolanaRpcClient}, constants::{self, trade::DEFAULT_SLIPPAGE}, instruction, swqos::FeeClient};
 
 const MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT: u32 = 250000;
 

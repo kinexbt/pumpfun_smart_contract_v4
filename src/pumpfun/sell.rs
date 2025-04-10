@@ -10,7 +10,7 @@ use tokio::task::JoinHandle;
 
 use std::{str::FromStr, time::Instant, sync::Arc};
 
-use crate::{common::{PriorityFee, SolanaRpcClient}, constants::trade::{DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SLIPPAGE}, instruction, jito::FeeClient};
+use crate::{common::{PriorityFee, SolanaRpcClient}, constants::trade::{DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SLIPPAGE}, instruction, swqos::FeeClient};
 
 use super::common::{calculate_with_slippage_sell, get_bonding_curve_account, get_global_account};
 

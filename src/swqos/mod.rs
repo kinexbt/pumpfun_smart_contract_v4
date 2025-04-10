@@ -1,11 +1,10 @@
 use api::api_client::ApiClient;
 use common::{poll_transaction_confirmation, serialize_smart_transaction_and_encode};
-use jito_protos::{searcher::searcher_service_client::SearcherServiceClient, shredstream::shredstream_client::ShredstreamClient};
+use crate::swqos::jito_grpc::searcher::searcher_service_client::SearcherServiceClient;
 use reqwest::Client;
 use searcher_client::{get_searcher_client_no_auth, send_bundle_with_confirmation};
 use serde_json::json;
 use tonic::transport::Channel;
-use tracing::instrument::WithSubscriber;
 use yellowstone_grpc_client::Interceptor;
 use std::{sync::Arc, time::Instant};
 use tokio::sync::{Mutex, RwLock};
@@ -29,6 +28,7 @@ use crate::{common::SolanaRpcClient, constants::accounts::{JITO_TIP_ACCOUNTS, NE
 pub mod common;
 pub mod searcher_client;
 pub mod api;
+pub mod jito_grpc;
 
 lazy_static::lazy_static! {
     static ref TIP_ACCOUNT_CACHE: RwLock<Vec<String>> = RwLock::new(Vec::new());
@@ -99,20 +99,6 @@ impl JitoClient {
     ) -> Result<Vec<Signature>, anyhow::Error> {
         searcher_client::send_bundle_no_wait(&transactions, self.searcher_client.clone()).await
     }
-
-    // pub async fn get_tip_accounts(&self) -> Result<Vec<String>, anyhow::Error> {
-    //     let client = ShredstreamClient::connect("dst").await?;
-    //     // let subscriber = Dispatch::new(tracing_subscriber::fmt::Subscriber::builder().finish());
-    //     let subscriber = tracing::subscriber::set_global_default(tracing_subscriber::fmt::Subscriber::builder().finish()).unwrap();
-    //     let aaa = client.with_subscriber(subscriber);
-       
-    //     let mut stream = client.subscribe_accounts_of_interest(tonic::Request::new(()));
-    //     let mut accounts = Vec::new();
-    //     while let Some(Ok(response)) = stream.next().await {
-    //         accounts.extend(response.accounts);
-    //     }
-    //     Ok(accounts)
-    // }
 }
 
 #[derive(Clone)]
