@@ -5,7 +5,6 @@ pub mod instruction;
 pub mod grpc;
 pub mod common;
 pub mod ipfs;
-pub mod trade;
 pub mod jito;
 pub mod pumpfun;
 
