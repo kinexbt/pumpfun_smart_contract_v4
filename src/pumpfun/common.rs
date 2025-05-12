@@ -88,9 +88,7 @@ pub async fn get_token_balance_and_ata(rpc: &SolanaRpcClient, payer: &Keypair, m
 
 #[inline]
 pub async fn get_sol_balance(rpc: &SolanaRpcClient, account: &Pubkey) -> Result<u64, anyhow::Error> {
-    println!("get_sol_balance account: {}", account);
     let balance = rpc.get_balance(account).await?;
-    println!("get_sol_balance balance: {}", balance);
     Ok(balance)
 }
 
@@ -113,6 +111,14 @@ pub fn get_mint_authority_pda() -> Pubkey {
 #[inline]
 pub fn get_bonding_curve_pda(mint: &Pubkey) -> Option<Pubkey> {
     let seeds: &[&[u8]; 2] = &[constants::seeds::BONDING_CURVE_SEED, mint.as_ref()];
+    let program_id: &Pubkey = &constants::accounts::PUMPFUN;
+    let pda: Option<(Pubkey, u8)> = Pubkey::try_find_program_address(seeds, program_id);
+    pda.map(|pubkey| pubkey.0)
+}
+
+#[inline]
+pub fn get_creator_vault_pda(creator: &Pubkey) -> Option<Pubkey> {
+    let seeds: &[&[u8]; 2] = &[constants::seeds::CREATOR_VAULT_SEED, creator.as_ref()];
     let program_id: &Pubkey = &constants::accounts::PUMPFUN;
     let pda: Option<(Pubkey, u8)> = Pubkey::try_find_program_address(seeds, program_id);
     pda.map(|pubkey| pubkey.0)
@@ -155,7 +161,7 @@ pub async fn get_initial_buy_price(global_account: &Arc<accounts::GlobalAccount>
 pub async fn get_bonding_curve_account(
     rpc: &SolanaRpcClient,
     mint: &Pubkey,
-) -> Result<Arc<accounts::BondingCurveAccount>, anyhow::Error> {
+) -> Result<(Arc<accounts::BondingCurveAccount>, Pubkey), anyhow::Error> {
     let bonding_curve_pda = get_bonding_curve_pda(mint)
         .ok_or(anyhow!("Bonding curve not found"))?;
 
@@ -164,8 +170,22 @@ pub async fn get_bonding_curve_account(
         return Err(anyhow!("Bonding curve not found"));
     }
 
-    let bonding_curve = Arc::new(accounts::BondingCurveAccount::try_from_slice(&account.data)?);
-    Ok(bonding_curve)
+    let bonding_curve = Arc::new(bincode::deserialize::<accounts::BondingCurveAccount>(&account.data)?);
+
+    Ok((bonding_curve, bonding_curve_pda))
+}
+
+#[inline]
+pub fn get_buy_token_amount(
+    bonding_curve_account: &BondingCurveAccount,
+    buy_sol_cost: u64,
+    slippage_basis_points: Option<u64>,
+) -> anyhow::Result<(u64, u64)> {
+    let buy_token = bonding_curve_account.get_buy_price(buy_sol_cost).map_err(|e| anyhow!(e))?;
+
+    let max_sol_cost = calculate_with_slippage_buy(buy_sol_cost, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
+
+    Ok((buy_token, max_sol_cost))
 }
 
 #[inline]

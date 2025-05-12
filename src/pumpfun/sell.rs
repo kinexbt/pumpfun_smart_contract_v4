@@ -196,7 +196,7 @@ pub async fn build_sell_instructions(
     }
     
     let global_account = get_global_account(rpc.as_ref()).await?;
-    let bonding_curve_account = get_bonding_curve_account(rpc.as_ref(), &mint).await?;
+    let (bonding_curve_account, bonding_curve_pda) = get_bonding_curve_account(&rpc, &mint).await?;
     let min_sol_output = bonding_curve_account
         .get_sell_price(amount, global_account.fee_basis_points)
         .map_err(|e| anyhow!(e))?;
@@ -205,10 +205,14 @@ pub async fn build_sell_instructions(
         slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
     );
 
+    let creator_vault_pda = get_creator_vault_pda(&bonding_curve_account.creator).unwrap();
+
     let instructions = vec![
         instruction::sell(
             payer.as_ref(),
             &mint,
+            &bonding_curve_pda,
+            &creator_vault_pda,
             &global_account.fee_recipient,
             instruction::Sell {
                 _amount: amount,

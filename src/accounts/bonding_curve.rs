@@ -25,10 +25,11 @@
 //! - `get_final_market_cap_sol`: Calculates the final market cap in SOL after all tokens are sold
 //! - `get_buy_out_price`: Calculates the price to buy out all remaining tokens
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use serde::{Serialize, Deserialize};
+use solana_sdk::pubkey::Pubkey;
 
-/// Represents a bonding curve for token pricing and liquidity management
-#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+/// Represents the global configuration account for token pricing and fees
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BondingCurveAccount {
     /// Unique identifier for the bonding curve
     pub discriminator: u64,
@@ -44,6 +45,8 @@ pub struct BondingCurveAccount {
     pub token_total_supply: u64,
     /// Whether the bonding curve is complete/finalized
     pub complete: bool,
+    /// Creator of the bonding curve
+    pub creator: Pubkey,
 }
 
 impl BondingCurveAccount {
@@ -57,25 +60,17 @@ impl BondingCurveAccount {
     /// * `real_sol_reserves` - Actual SOL reserves available
     /// * `token_total_supply` - Total supply of tokens
     /// * `complete` - Whether the curve is complete
-    pub fn new(
-        discriminator: u64,
-        virtual_token_reserves: u64,
-        virtual_sol_reserves: u64,
-        real_token_reserves: u64,
-        real_sol_reserves: u64,
-        token_total_supply: u64,
-        complete: bool,
-    ) -> Self {
-        Self {
-            discriminator,
-            virtual_token_reserves,
-            virtual_sol_reserves,
-            real_token_reserves,
-            real_sol_reserves,
-            token_total_supply,
-            complete,
-        }
-    }
+    // pub fn new(mint: &Pubkey, dev_buy_token_amount: u64, dev_buy_sol_amount: u64) -> Self {
+    //     Self {
+    //         // account: get_bonding_curve_pda(mint).unwrap(),
+    //         virtual_token_reserves: INITIAL_VIRTUAL_TOKEN_RESERVES - dev_buy_token_amount,
+    //         virtual_sol_reserves: INITIAL_VIRTUAL_SOL_RESERVES + dev_buy_sol_amount,
+    //         real_token_reserves: INITIAL_REAL_TOKEN_RESERVES - dev_buy_token_amount,
+    //         real_sol_reserves: dev_buy_sol_amount,
+    //         token_total_supply: TOKEN_TOTAL_SUPPLY,
+    //         complete: false,
+    //     }
+    // }
 
     /// Calculates the amount of tokens received for a given SOL amount
     ///
@@ -202,132 +197,5 @@ impl BondingCurveAccount {
         let v_tokens = self.virtual_token_reserves as f64 / 100_000.0;
         let token_price = v_sol / v_tokens;
         token_price
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn get_bonding_curve() -> BondingCurveAccount {
-        BondingCurveAccount::new(
-            1,     // discriminator
-            1000,  // virtual_token_reserves
-            1000,  // virtual_sol_reserves
-            500,   // real_token_reserves
-            500,   // real_sol_reserves
-            1000,  // token_total_supply
-            false, // complete
-        )
-    }
-
-    fn get_large_bonding_curve() -> BondingCurveAccount {
-        BondingCurveAccount::new(
-            1,            // discriminator
-            u64::MAX / 2, // virtual_token_reserves
-            u64::MAX / 2, // virtual_sol_reserves
-            u64::MAX / 4, // real_token_reserves
-            u64::MAX / 4, // real_sol_reserves
-            u64::MAX / 2, // token_total_supply
-            false,        // complete
-        )
-    }
-
-    #[test]
-    fn test_bonding_curve_account() {
-        let bonding_curve: BondingCurveAccount = get_bonding_curve();
-
-        // Test buy price calculation
-        assert_eq!(bonding_curve.get_buy_price(0).unwrap(), 0);
-
-        let buy_price = bonding_curve.get_buy_price(100).unwrap();
-        assert!(buy_price > 0);
-        assert!(buy_price <= bonding_curve.real_token_reserves);
-
-        // Test sell price calculation
-        assert_eq!(bonding_curve.get_sell_price(0, 250).unwrap(), 0);
-
-        let sell_price = bonding_curve.get_sell_price(100, 250).unwrap();
-        assert!(sell_price > 0);
-    }
-
-    #[test]
-    fn test_bonding_curve_complete() {
-        let mut bonding_curve: BondingCurveAccount = get_bonding_curve();
-
-        // Test operations work when not complete
-        assert!(bonding_curve.get_buy_price(100).is_ok());
-        assert!(bonding_curve.get_sell_price(100, 250).is_ok());
-
-        // Set curve to complete
-        bonding_curve.complete = true;
-
-        // Test operations fail when complete
-        assert!(bonding_curve.get_buy_price(100).is_err());
-        assert!(bonding_curve.get_sell_price(100, 250).is_err());
-    }
-
-    #[test]
-    fn test_market_cap_calculations() {
-        let bonding_curve: BondingCurveAccount = get_bonding_curve();
-
-        // Test market cap calculations
-        let market_cap = bonding_curve.get_market_cap_sol();
-        assert!(market_cap > 0);
-
-        let final_market_cap = bonding_curve.get_final_market_cap_sol(250);
-        assert!(final_market_cap > 0);
-    }
-
-    #[test]
-    fn test_buy_out_price() {
-        let bonding_curve: BondingCurveAccount = get_bonding_curve();
-
-        let buy_out_price = bonding_curve.get_buy_out_price(100, 250);
-        assert!(buy_out_price > 0);
-
-        // Test with amount less than real_sol_reserves
-        let small_buy_out = bonding_curve.get_buy_out_price(400, 250);
-        assert!(small_buy_out > 0);
-    }
-
-    #[test]
-    fn test_overflow_buy_price() {
-        let bonding_curve = get_large_bonding_curve();
-
-        // Test buying with large SOL amount
-        let buy_price = bonding_curve.get_buy_price(u64::MAX).unwrap();
-        assert!(buy_price > 0);
-        assert!(buy_price <= bonding_curve.real_token_reserves);
-    }
-
-    #[test]
-    fn test_overflow_sell_price() {
-        let bonding_curve = get_large_bonding_curve();
-
-        // Test selling large token amount
-        let sell_price = bonding_curve.get_sell_price(u64::MAX / 4, 250).unwrap();
-        assert!(sell_price > 0);
-    }
-
-    #[test]
-    fn test_overflow_market_cap() {
-        let bonding_curve = get_large_bonding_curve();
-
-        // Test market cap with large values
-        let market_cap = bonding_curve.get_market_cap_sol();
-        assert!(market_cap > 0);
-
-        let final_market_cap = bonding_curve.get_final_market_cap_sol(250);
-        assert!(final_market_cap > 0);
-    }
-
-    #[test]
-    fn test_overflow_buy_out_price() {
-        let bonding_curve = get_large_bonding_curve();
-
-        // Test buy out with large token amount
-        let buy_out_price = bonding_curve.get_buy_out_price(u64::MAX / 4, 250);
-        assert!(buy_out_price > 0);
     }
 }

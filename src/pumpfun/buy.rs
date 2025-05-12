@@ -146,17 +146,12 @@ pub async fn build_buy_instructions(
         return Err(anyhow!("Amount cannot be zero"));
     }
 
-    let rpc = rpc.as_ref();
-    let global_account = get_global_account(rpc).await?;
-    let buy_amount = match get_bonding_curve_account(rpc, mint.as_ref()).await {
-        Ok(account) => account.get_buy_price(amount_sol).map_err(|e| anyhow!(e))?,
-        Err(_e) => {
-            println!("Bonding curve account not found, using initial buy price: {}", _e);
-            let initial_buy_amount = get_initial_buy_price(&global_account, amount_sol).await?;
-            initial_buy_amount * 80 / 100
-        }
-    };
-    let buy_amount_with_slippage = calculate_with_slippage_buy(amount_sol, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
+    let (bonding_curve_account, bonding_curve_pda) = get_bonding_curve_account(&rpc, &mint).await?;
+
+    let creator_vault_pda = get_creator_vault_pda(&bonding_curve_account.creator).unwrap();
+
+    let (buy_token_amount, max_sol_cost) = get_buy_token_amount(&bonding_curve_account, buy_sol_cost, slippage_basis_points)?;
+
     let mut instructions = vec![];
     instructions.push(create_associated_token_account(
         &payer.pubkey(),
@@ -168,10 +163,12 @@ pub async fn build_buy_instructions(
     instructions.push(instruction::buy(
         payer.as_ref(),
         &mint,
+        &bonding_curve_pda,
+        &creator_vault_pda,
         &global_account.fee_recipient,
         instruction::Buy {
-            _amount: buy_amount,
-            _max_sol_cost: buy_amount_with_slippage,
+            _amount: buy_token_amount,
+            _max_sol_cost: max_sol_cost,
         },
     ));
 
