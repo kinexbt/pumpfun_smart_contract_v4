@@ -202,7 +202,7 @@ pub fn sell(
             AccountMeta::new_readonly(constants::global_constants::GLOBAL_ACCOUNT, false),
             AccountMeta::new(*fee_recipient, false),
             AccountMeta::new_readonly(*mint, false),
-            AccountMeta::new(bonding_curve, false),
+            AccountMeta::new(*bonding_curve, false),
             AccountMeta::new(get_associated_token_address(&bonding_curve, mint), false),
             AccountMeta::new(get_associated_token_address(&payer.pubkey(), mint), false),
             AccountMeta::new(payer.pubkey(), true),

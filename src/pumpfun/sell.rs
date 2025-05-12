@@ -12,7 +12,7 @@ use std::{str::FromStr, time::Instant, sync::Arc};
 
 use crate::{common::{PriorityFee, SolanaRpcClient}, constants::trade::{DEFAULT_COMPUTE_UNIT_PRICE, DEFAULT_SLIPPAGE}, instruction, swqos::FeeClient};
 
-use super::common::{calculate_with_slippage_sell, get_bonding_curve_account, get_global_account};
+use super::common::{calculate_with_slippage_sell, get_bonding_curve_account, get_creator_vault_pda, get_global_account};
 
 async fn get_token_balance(rpc: &SolanaRpcClient, payer: &Keypair, mint: &Pubkey) -> Result<(u64, Pubkey), anyhow::Error> {
     let ata = get_associated_token_address(&payer.pubkey(), mint);

@@ -7,11 +7,11 @@ use spl_associated_token_account::instruction::create_associated_token_account;
 use tokio::task::JoinHandle;
 use std::{str::FromStr, time::Instant, sync::Arc};
 
-use crate::{common::{PriorityFee, SolanaRpcClient}, constants::{self, trade::DEFAULT_SLIPPAGE}, instruction, swqos::FeeClient};
+use crate::{common::{PriorityFee, SolanaRpcClient}, constants::{self, global_constants::FEE_RECIPIENT, trade::DEFAULT_SLIPPAGE}, instruction, swqos::FeeClient};
 
 const MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT: u32 = 250000;
 
-use super::common::{calculate_with_slippage_buy, get_bonding_curve_account, get_global_account, get_initial_buy_price};
+use super::common::{calculate_with_slippage_buy, get_bonding_curve_account, get_buy_token_amount, get_creator_vault_pda, get_global_account, get_initial_buy_price};
 
 pub async fn buy(
     rpc: Arc<SolanaRpcClient>,
@@ -139,10 +139,10 @@ pub async fn build_buy_instructions(
     rpc: Arc<SolanaRpcClient>,
     payer: Arc<Keypair>,
     mint: Arc<Pubkey>,
-    amount_sol: u64,
+    buy_sol_cost: u64,
     slippage_basis_points: Option<u64>,
 ) -> Result<Vec<Instruction>, anyhow::Error> {
-    if amount_sol == 0 {
+    if buy_sol_cost == 0 {
         return Err(anyhow!("Amount cannot be zero"));
     }
 
@@ -165,7 +165,7 @@ pub async fn build_buy_instructions(
         &mint,
         &bonding_curve_pda,
         &creator_vault_pda,
-        &global_account.fee_recipient,
+        &FEE_RECIPIENT,
         instruction::Buy {
             _amount: buy_token_amount,
             _max_sol_cost: max_sol_cost,

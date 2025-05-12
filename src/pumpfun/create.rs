@@ -10,15 +10,15 @@ use spl_associated_token_account::{
 };
 
 use crate::{
-    common::{PriorityFee, SolanaRpcClient}, constants, instruction, 
-    ipfs::TokenMetadataIPFS,  swqos::FeeClient,
-    pumpfun::buy::build_buy_transaction_with_tip
+    common::{PriorityFee, SolanaRpcClient}, constants::{self, global_constants::FEE_RECIPIENT}, instruction, ipfs::TokenMetadataIPFS, pumpfun::buy::build_buy_transaction_with_tip, swqos::FeeClient
 };
 
 use crate::pumpfun::common::{
     create_priority_fee_instructions, 
     get_buy_amount_with_slippage, get_global_account
 };
+
+use super::common::{get_bonding_curve_account, get_buy_token_amount, get_creator_vault_pda};
 
 /// Create a new token
 pub async fn create(
@@ -181,19 +181,19 @@ pub async fn build_create_and_buy_instructions(
     payer: Arc<Keypair>,
     mint: Arc<Keypair>,
     ipfs: TokenMetadataIPFS,
-    amount_sol: u64,
+    buy_sol_cost: u64,
     slippage_basis_points: Option<u64>,
     priority_fee: PriorityFee, 
 ) -> Result<Vec<Instruction>, anyhow::Error> {
-    if amount_sol == 0 {
+    if buy_sol_cost == 0 {
         return Err(anyhow!("Amount cannot be zero"));
     }
 
-    let rpc = rpc.as_ref();
-    let global_account = get_global_account(rpc).await?;
-    let buy_amount = global_account.get_initial_buy_price(amount_sol);
-    let buy_amount_with_slippage =
-        get_buy_amount_with_slippage(amount_sol, slippage_basis_points);
+    let (bonding_curve_account, bonding_curve_pda) = get_bonding_curve_account(&rpc, &mint.pubkey()).await?;
+
+    let creator_vault_pda = get_creator_vault_pda(&bonding_curve_account.creator).unwrap();
+
+    let (buy_token_amount, max_sol_cost) = get_buy_token_amount(&bonding_curve_account, buy_sol_cost, slippage_basis_points)?;
 
     let mut instructions = vec![];
 
@@ -218,10 +218,12 @@ pub async fn build_create_and_buy_instructions(
     instructions.push(instruction::buy(
         payer.as_ref(),
         &mint.pubkey(),
-        &global_account.fee_recipient,
+        &bonding_curve_pda,
+        &creator_vault_pda,
+        &FEE_RECIPIENT,
         instruction::Buy {
-            _amount: buy_amount,
-            _max_sol_cost: buy_amount_with_slippage,
+            _amount: buy_token_amount,
+            _max_sol_cost: max_sol_cost,
         },
     ));
 

@@ -177,7 +177,7 @@ pub async fn get_bonding_curve_account(
 
 #[inline]
 pub fn get_buy_token_amount(
-    bonding_curve_account: &BondingCurveAccount,
+    bonding_curve_account: &Arc<accounts::BondingCurveAccount>,
     buy_sol_cost: u64,
     slippage_basis_points: Option<u64>,
 ) -> anyhow::Result<(u64, u64)> {
