@@ -7,11 +7,11 @@ use spl_associated_token_account::instruction::create_associated_token_account;
 use tokio::task::JoinHandle;
 use std::{str::FromStr, time::Instant, sync::Arc};
 
-use crate::{common::{PriorityFee, SolanaRpcClient}, constants::{self, global_constants::FEE_RECIPIENT, trade::DEFAULT_SLIPPAGE}, instruction, swqos::FeeClient};
+use crate::{common::{PriorityFee, SolanaRpcClient}, constants::{self, global_constants::FEE_RECIPIENT}, instruction, swqos::FeeClient};
 
 const MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT: u32 = 250000;
 
-use super::common::{calculate_with_slippage_buy, get_bonding_curve_account, get_buy_token_amount, get_creator_vault_pda, get_global_account, get_initial_buy_price};
+use super::common::{calculate_with_slippage_buy, get_bonding_curve_account, get_buy_token_amount_from_sol_amount, get_creator_vault_pda};
 
 pub async fn buy(
     rpc: Arc<SolanaRpcClient>,
@@ -146,11 +146,18 @@ pub async fn build_buy_instructions(
         return Err(anyhow!("Amount cannot be zero"));
     }
 
-    let (bonding_curve_account, bonding_curve_pda) = get_bonding_curve_account(&rpc, &mint).await?;
+    let (bonding_curve, bonding_curve_pda) = get_bonding_curve_account(&rpc, &mint).await?;
+    let creator_vault_pda = get_creator_vault_pda(&bonding_curve.creator).unwrap();
+    let max_sol_cost = calculate_with_slippage_buy(buy_sol_cost, slippage_basis_points.unwrap_or(100));
 
-    let creator_vault_pda = get_creator_vault_pda(&bonding_curve_account.creator).unwrap();
-
-    let (buy_token_amount, max_sol_cost) = get_buy_token_amount(&bonding_curve_account, buy_sol_cost, slippage_basis_points)?;
+    let mut buy_token_amount = get_buy_token_amount_from_sol_amount(&bonding_curve, buy_sol_cost);
+    if buy_token_amount <= 100 * 1_000_000_u64 {
+        buy_token_amount = if max_sol_cost > sol_to_lamports(0.01) {
+            25547619 * 1_000_000_u64
+        } else {
+            255476 * 1_000_000_u64
+        };
+    }
 
     let mut instructions = vec![];
     instructions.push(create_associated_token_account(

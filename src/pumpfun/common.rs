@@ -6,7 +6,7 @@ use solana_sdk::{
     commitment_config::CommitmentConfig, compute_budget::ComputeBudgetInstruction, instruction::Instruction, program_pack::Pack, pubkey::Pubkey, signature::Keypair, signer::Signer, system_instruction, transaction::Transaction
 };
 use spl_associated_token_account::get_associated_token_address;
-use crate::{accounts, common::{logs_data::TradeInfo, PriorityFee, SolanaRpcClient}, constants::{self, trade::DEFAULT_SLIPPAGE}};
+use crate::{accounts::{self, BondingCurveAccount}, common::{logs_data::TradeInfo, PriorityFee, SolanaRpcClient}, constants::{self, global_constants::{CREATOR_FEE, FEE_BASIS_POINTS}, trade::DEFAULT_SLIPPAGE}};
 use borsh::BorshDeserialize;
 
 lazy_static::lazy_static! {
@@ -186,6 +186,49 @@ pub fn get_buy_token_amount(
     let max_sol_cost = calculate_with_slippage_buy(buy_sol_cost, slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE));
 
     Ok((buy_token, max_sol_cost))
+}
+
+pub fn get_buy_token_amount_from_sol_amount(
+    bonding_curve: &BondingCurveAccount,
+    amount: u64,
+) -> u64 {
+    if amount == 0 {
+        return 0;
+    }
+
+    if bonding_curve.virtual_token_reserves == 0 {
+        return 0;
+    }
+
+    let total_fee_basis_points = FEE_BASIS_POINTS
+        + if bonding_curve.creator != Pubkey::default() {
+            CREATOR_FEE
+        } else {
+            0
+        };
+
+    // 转为 u128 防止溢出
+    let amount_128 = amount as u128;
+    let total_fee_basis_points_128 = total_fee_basis_points as u128;
+    let input_amount = amount_128
+        .checked_mul(10_000)
+        .unwrap()
+        .checked_div(total_fee_basis_points_128 + 10_000)
+        .unwrap();
+
+    let virtual_token_reserves = bonding_curve.virtual_token_reserves as u128;
+    let virtual_sol_reserves = bonding_curve.virtual_sol_reserves as u128;
+    let real_token_reserves = bonding_curve.real_token_reserves as u128;
+
+    let denominator = virtual_sol_reserves + input_amount;
+
+    let tokens_received = input_amount
+        .checked_mul(virtual_token_reserves)
+        .unwrap()
+        .checked_div(denominator)
+        .unwrap();
+
+    tokens_received.min(real_token_reserves) as u64
 }
 
 #[inline]

@@ -191,14 +191,12 @@ impl PumpFun {
         &self,
         mint: Pubkey,
         amount_token: Option<u64>,
-        slippage_basis_points: Option<u64>,
     ) -> Result<(), anyhow::Error> {
         pumpfun::sell::sell(
             self.rpc.clone(),
             self.payer.clone(),
             mint.clone(),
             amount_token,
-            slippage_basis_points,
             self.priority_fee.clone(),
         ).await
     }
@@ -208,14 +206,12 @@ impl PumpFun {
         &self,
         mint: Pubkey,
         percent: u64,
-        slippage_basis_points: Option<u64>,
     ) -> Result<(), anyhow::Error> {
         pumpfun::sell::sell_by_percent(
             self.rpc.clone(),
             self.payer.clone(),
             mint.clone(),
             percent,
-            slippage_basis_points,
             self.priority_fee.clone(),
         ).await
     }
@@ -224,7 +220,6 @@ impl PumpFun {
         &self,
         mint: Pubkey,
         percent: u64,
-        slippage_basis_points: Option<u64>,
     ) -> Result<(), anyhow::Error> {
         pumpfun::sell::sell_by_percent_with_tip(
             self.rpc.clone(),
@@ -232,7 +227,6 @@ impl PumpFun {
             self.payer.clone(),
             mint,
             percent,
-            slippage_basis_points,
             self.priority_fee.clone(),
         ).await
     }
@@ -242,7 +236,6 @@ impl PumpFun {
         &self,
         mint: Pubkey,
         amount_token: Option<u64>,
-        slippage_basis_points: Option<u64>,
     ) -> Result<(), anyhow::Error> {
         pumpfun::sell::sell_with_tip(
             self.rpc.clone(),
@@ -250,7 +243,6 @@ impl PumpFun {
             self.payer.clone(),
             mint,
             amount_token,
-            slippage_basis_points,
             self.priority_fee.clone(),
         ).await
     }
