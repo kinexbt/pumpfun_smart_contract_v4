@@ -67,10 +67,9 @@ impl RaydiumEvent {
 
         if !logs.is_empty() {
             let logs_iter = logs.iter().peekable();
+            let re = Regex::new(r"ray_log: (?P<base64>[A-Za-z0-9+/=]+)").unwrap();
 
             for l in logs_iter.rev() {
-                let re = Regex::new(r"ray_log: (?P<base64>[A-Za-z0-9+/=]+)").unwrap();
-
                 if let Some(caps) = re.captures(l) {
                     if let Some(base64) = caps.name("base64") {
                         let bytes = general_purpose::STANDARD.decode(base64.as_str()).unwrap();
