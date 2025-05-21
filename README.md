@@ -54,7 +54,6 @@ let callback = |event: PumpfunEvent| {
 
 let payer_keypair = Keypair::from_base58_string("your private key");
 client.subscribe_pumpfun(callback, Some(payer_keypair.pubkey())).await?;
-
 ```
 
 ### Init pumpfun instance for configs
@@ -90,42 +89,6 @@ let pumpfun = PumpFun::new(
     Arc::new(payer), 
     &cluster,
 ).await;
-```
-
-### pumpfun create Token
-```rust
-use std::sync::Arc;
-use pumpfun_sdk::{ipfs, PumpFun};
-use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
-
-// create pumpfun instance
-let pumpfun = PumpFun::new(Arc::new(payer), &cluster).await;
-
-// Mint keypair
-let mint_pubkey: Keypair = Keypair::new();
-
-let metadata = ipfs::CreateTokenMetadata {
-    name: "Doge".to_string(),
-    symbol: "DOGE".to_string(),
-    description: "Dogecoin".to_string(),
-    file: "/Users/joseph/Desktop/doge.png".to_string(),
-    twitter: None,
-    telegram: None,
-    website: None,
-    metadata_uri: None,
-};
-
-// ipfs jwt_token for https://pinata.cloud 
-let jwt_token = "your ipfs jwt_token";
-let ipfs_metadata = ipfs::create_token_metadata(metadata, &jwt_token).await?;
-println!("ipfs_metadata: {:?}", ipfs_metadata);
-
-pumpfun.create_and_buy(
-    mint, 
-    ipfs_metadata, 
-    sol_to_lamports(0.1), 
-    None,
-).await?;
 ```
 
 ### pumpfun buy token

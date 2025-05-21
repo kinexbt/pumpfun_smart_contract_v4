@@ -97,59 +97,6 @@ impl PumpFun {
             cluster: cluster.clone(),
         }
     }
-
-    /// Create a new token
-    pub async fn create(
-        &self,
-        mint: Keypair,
-        ipfs: TokenMetadataIPFS,
-    ) -> Result<(), anyhow::Error> {
-        pumpfun::create::create(
-            self.rpc.clone(),
-            self.payer.clone(),
-            mint,
-            ipfs,
-            self.priority_fee.clone(),
-        ).await 
-    }
-
-    pub async fn create_and_buy(
-        &self,
-        mint: Keypair,
-        ipfs: TokenMetadataIPFS,
-        amount_sol: u64,
-        slippage_basis_points: Option<u64>,
-    ) -> Result<(), anyhow::Error> {
-        pumpfun::create::create_and_buy(
-            self.rpc.clone(),
-            self.payer.clone(),
-            mint,
-            ipfs,
-            amount_sol,
-            slippage_basis_points,
-            self.priority_fee.clone(),
-        ).await
-    }
-
-    pub async fn create_and_buy_with_tip(
-        &self,
-        payer: Arc<Keypair>, 
-        mint: Keypair,
-        ipfs: TokenMetadataIPFS,
-        amount_sol: u64,
-        slippage_basis_points: Option<u64>,
-    ) -> Result<(), anyhow::Error> { 
-        pumpfun::create::create_and_buy_with_tip(
-            self.rpc.clone(),
-            self.fee_clients.clone(),
-            payer,
-            mint,
-            ipfs,
-            amount_sol,
-            slippage_basis_points,
-            self.priority_fee.clone(),
-        ).await
-    }
     
     /// Buy tokens
     pub async fn buy(
