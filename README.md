@@ -122,3 +122,6 @@ pumpfun.sell_with_tip(mint_pubkey, 100000, None).await?;
 pumpfun.sell_by_percent_with_tip(mint_pubkey, 100, None).await?;
 
 ```
+
+### Telegram group:
+https://t.me/fnzero_group
