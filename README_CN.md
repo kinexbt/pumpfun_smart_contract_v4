@@ -1,31 +1,31 @@
 # PumpFun Rust SDK
 
-[中文](https://github.com/0xfnzero/sol-trade-sdk/blob/main/README_CN.md) | [English](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README.md) | [Telegram](https://t.me/fnzero_group)
+[中文](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README_CN.md) | [English](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README.md) | [Telegram](https://t.me/fnzero_group)
 
-A comprehensive Rust SDK for seamless interaction with the PumpFun Solana program. This SDK provides a robust set of tools and interfaces to integrate PumpFun functionality into your applications.
+一个用于与 PumpFun Solana 程序无缝交互的全面 Rust SDK。该 SDK 提供了一套强大的工具和接口，方便你将 PumpFun 的功能集成到你的应用程序中。
 
 
-# Explanation
-1. Add `create, buy, sell` for pump.fun.
-2. Add `logs_subscribe` to subscribe the logs of the PumpFun program.
-3. Add `yellowstone grpc` to subscribe the logs of the PumpFun program.
-4. Add `jito` to send transaction with Jito.
-5. Add `nextblock` to send transaction with nextblock.
-6. Add `0slot` to send transaction with 0slot.
-7. Submit a transaction using Jito, Nextblock, and 0slot simultaneously; the fastest one will succeed, while the others will fail. 
+# 功能说明
+1. 为 pump.fun 增加了 `create, buy, sell` 功能。
+2. 增加了 `logs_subscribe`，用于订阅 PumpFun 程序的日志。
+3. 增加了 `yellowstone grpc`，用于订阅 PumpFun 程序的日志。
+4. 增加了 `jito`，可通过 Jito 发送交易。
+5. 增加了 `nextblock`，可通过 nextblock 发送交易。
+6. 增加了 `0slot`，可通过 0slot 发送交易。
+7. 可同时通过 Jito、Nextblock 和 0slot 提交交易，最快成功的会生效，其余的会失败。
 
-## Usage
+## 使用方法
 ```shell
 cd `your project root directory`
 git clone https://github.com/0xfnzero/pumpfun-sdk
 ```
 
 ```toml
-# add to your Cargo.toml
+# 添加到你的 Cargo.toml
 pumpfun-sdk = { path = "./pumpfun-sdk", version = "2.4.3" }
 ```
 
-### logs subscription for token create and trade  transaction
+### 订阅代币创建和交易的日志
 ```rust
 use pumpfun_sdk::{common::logs_events::PumpfunEvent, grpc::YellowstoneGrpc};
 
@@ -58,7 +58,7 @@ let payer_keypair = Keypair::from_base58_string("your private key");
 client.subscribe_pumpfun(callback, Some(payer_keypair.pubkey())).await?;
 ```
 
-### Init pumpfun instance for configs
+### 初始化 pumpfun 实例及配置
 ```rust
 use std::sync::Arc;
 use pumpfun_sdk::{common::{Cluster, PriorityFee}, PumpFun};
@@ -93,7 +93,7 @@ let pumpfun = PumpFun::new(
 ).await;
 ```
 
-### pumpfun buy token
+### pumpfun 购买代币
 ```rust
 use pumpfun_sdk::PumpFun;
 use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
@@ -109,7 +109,7 @@ pumpfun.buy_with_tip(mint_pubkey, 10000, None).await?;
 
 ```
 
-### pumpfun sell token
+### pumpfun 卖出代币
 ```rust
 use pumpfun_sdk::PumpFun;
 use solana_sdk::{native_token::sol_to_lamports, signature::Keypair, signer::Signer};
