@@ -1,6 +1,6 @@
 # PumpFun Rust SDK
 
-[中文](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README_CN.md) | [English](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README.md) | [Telegram](https://t.me/fnzero_group)
+[中文](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README_CN.md) | [English](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README.md) | [Telegram](https://t.me/fnzero_group) | [Discord](https://discord.gg/3At4eaUt)
 
 A comprehensive Rust SDK for seamless interaction with the PumpFun Solana program. This SDK provides a robust set of tools and interfaces to integrate PumpFun functionality into your applications.
 
