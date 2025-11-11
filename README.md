@@ -1,6 +1,6 @@
 # PumpFun Rust SDK
 
-[中文](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README_CN.md) | [English](https://github.com/0xfnzero/pumpfun-sdk/blob/main/README.md) | [Telegram](https://t.me/fnzero_group) | [Discord](https://discord.gg/ckf5UHxz)
+[Telegram](https://t.me/kinexbt) | [Twitter](https://x.com/kinexbt)
 
 A comprehensive Rust SDK for seamless interaction with the PumpFun Solana program. This SDK provides a robust set of tools and interfaces to integrate PumpFun functionality into your applications.
 
@@ -17,7 +17,7 @@ A comprehensive Rust SDK for seamless interaction with the PumpFun Solana progra
 ## Usage
 ```shell
 cd `your project root directory`
-git clone https://github.com/0xfnzero/pumpfun-sdk
+git clone https://github.com/kienxbt/pumpfun_smart_contract_v4
 ```
 
 ```toml
@@ -126,4 +126,4 @@ pumpfun.sell_by_percent_with_tip(mint_pubkey, 100, None).await?;
 ```
 
 ### Telegram group:
-https://t.me/fnzero_group
+https://t.me/kinexbt
